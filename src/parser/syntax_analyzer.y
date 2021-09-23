@@ -40,6 +40,7 @@ struct _syntax_tree_node;
 
 /* TODO: Your tokens here. */
 %token<node> INT
+%token<node> FLOAT
 %token<node> IF
 %token<node> ELSE
 %token<node> RETURN
@@ -67,7 +68,7 @@ struct _syntax_tree_node;
 %token<node> COMMENT
 %token<node> ID
 %token<node> INTEGER
-%token<node> FLOAT
+%token<node> FLOATPOINT
 %token<node> ERROR
 %type<node> program
 
@@ -226,7 +227,7 @@ factor: LPAREN expression RPAREN{$$=node("factor", 3, $1, $2, $3);}
 
 integer: INTEGER{$$=node("integer", 1, $1);};
 
-float: FLOAT{$$=node("float", 1, $1);};
+float: FLOATPOINT{$$=node("float", 1, $1);};
 
 call: ID LPAREN args RPAREN{$$=node("call", 4, $1, $2, $3, $4);}
 ;
@@ -241,7 +242,7 @@ arg-list: arg-list COMMA expression{$$=node("arg-list", 3, $1, $2, $3);}
 
 %%
 
-    /// The error reporting function.
+/// The error reporting function.
 void yyerror(const char *s)
 {
     // TO STUDENTS: This is just an example.

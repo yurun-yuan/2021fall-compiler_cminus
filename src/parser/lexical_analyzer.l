@@ -62,7 +62,7 @@ while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;}
 "/*"((\*)*[^\*]|(\/))*(\*)*"*/" {advance(strlen(yytext));pass_node(yytext);}
 [a-zA-Z]+ { advance(strlen(yytext)); pass_node(yytext);  return ID;} 
 [0-9]+ { advance(strlen(yytext)); pass_node(yytext);  return INTEGER;} 
-([0-9]+\.|[0-9]*\.[0-9]+) { advance(strlen(yytext)); pass_node(yytext);  return FLOAT;} 
+([0-9]+\.|[0-9]*\.[0-9]+) { advance(strlen(yytext)); pass_node(yytext);  return FLOATPOINT;} 
 . { advance(1);  return ERROR;}
 
 %%
