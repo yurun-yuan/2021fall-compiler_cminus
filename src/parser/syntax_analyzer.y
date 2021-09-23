@@ -113,130 +113,130 @@ program: declaration-list {$$ = node( "program", 1, $1); gt->root = $$;}
 
 program : declaration-list
 {
-    /* fprintf(stderr, "%s\n", "program") */;$$ = node("program", 1, $1);
+    $$ = node("program", 1, $1);
     gt->root = $$;
 };
-declaration-list : declaration-list declaration { /* fprintf(stderr, "%s\n", "declaration-list") */;$$ = node("declaration-list", 2, $1, $2); }
-| declaration{/* fprintf(stderr, "%s\n", "declaration-list") */;$$ = node("declaration-list", 1, $1);}
+declaration-list : declaration-list declaration { $$ = node("declaration-list", 2, $1, $2); }
+| declaration{$$ = node("declaration-list", 1, $1);}
 ;
 
-declaration: var-declaration{/* fprintf(stderr, "%s\n", "declaration") */;$$ = node("declaration", 1, $1);}
-| fun-declaration{/* fprintf(stderr, "%s\n", "declaration") */;$$ = node("declaration", 1, $1);}
+declaration: var-declaration{$$ = node("declaration", 1, $1);}
+| fun-declaration{$$ = node("declaration", 1, $1);}
 ;
 
-var-declaration: type-specifier ID SEMICOLON {/* fprintf(stderr, "%s\n", "var-declaration") */;$$ = node("var-declaration", 3, $1, $2, $3);}
-| type-specifier ID LBRACKET INTEGER RBRACKET SEMICOLON {/* fprintf(stderr, "%s\n", "var-declaration") */;$$ = node("var-declaration", 6, $1, $2, $3, $4, $5, $6);}
+var-declaration: type-specifier ID SEMICOLON {$$ = node("var-declaration", 3, $1, $2, $3);}
+| type-specifier ID LBRACKET INTEGER RBRACKET SEMICOLON {$$ = node("var-declaration", 6, $1, $2, $3, $4, $5, $6);}
 ;
 
-type-specifier: INT{/* fprintf(stderr, "%s\n", "type-specifier") */;$$=node("type-specifier", 1, $1);}
-|FLOAT{/* fprintf(stderr, "%s\n", "type-specifier") */;$$=node("type-specifier", 1, $1);}
-|VOID{/* fprintf(stderr, "%s\n", "type-specifier") */;$$=node("type-specifier", 1, $1);}
+type-specifier: INT{$$=node("type-specifier", 1, $1);}
+|FLOAT{$$=node("type-specifier", 1, $1);}
+|VOID{$$=node("type-specifier", 1, $1);}
 ;
 
-fun-declaration: type-specifier ID LPAREN params RPAREN compound-stmt{/* fprintf(stderr, "%s\n", "fun-declaration") */;$$=node("fun-declaration", 6, $1, $2, $3, $4, $5, $6);}
+fun-declaration: type-specifier ID LPAREN params RPAREN compound-stmt{$$=node("fun-declaration", 6, $1, $2, $3, $4, $5, $6);}
 ;
 
-params: param-list{/* fprintf(stderr, "%s\n", "params") */;$$=node("params", 1, $1);}
-|VOID {/* fprintf(stderr, "%s\n", "params") */;$$=node("params", 1, $1);}
+params: param-list{$$=node("params", 1, $1);}
+|VOID {$$=node("params", 1, $1);}
 ;
 
-param-list: param-list COMMA param {/* fprintf(stderr, "%s\n", "param-list") */;$$ = node("param-list", 3, $1, $2, $3);}
-| param {/* fprintf(stderr, "%s\n", "param-list") */;$$=node("param-list", 1, $1);}
+param-list: param-list COMMA param {$$ = node("param-list", 3, $1, $2, $3);}
+| param {$$=node("param-list", 1, $1);}
 ;
 
-param: type-specifier ID{/* fprintf(stderr, "%s\n", "param") */;$$=node("param", 2, $1, $2);}
+param: type-specifier ID{$$=node("param", 2, $1, $2);}
 | type-specifier ID LBRACKET RBRACKET {$$=node("param", 4, $1, $2, $3, $4);}
 ;
 
-compound-stmt: LBRACE local-declarations statement-list RBRACE {/* fprintf(stderr, "%s\n", "compound-stmt") */;$$=node("compound-stmt", 4, $1, $2, $3, $4);}
+compound-stmt: LBRACE local-declarations statement-list RBRACE {$$=node("compound-stmt", 4, $1, $2, $3, $4);}
 ;
 
-local-declarations: local-declarations var-declaration{/* fprintf(stderr, "%s\n", "local-declarations") */;$$=node("local-declarations", 2, $1, $2);}
-| {/* fprintf(stderr, "%s\n", "local-declarations") */;$$=node("local-declarations", 0);}
+local-declarations: local-declarations var-declaration{$$=node("local-declarations", 2, $1, $2);}
+| {$$=node("local-declarations", 0);}
 ;
 
-statement-list: statement-list statement{/* fprintf(stderr, "%s\n", "statement-list") */;$$=node("statement-list", 2, $1, $2);}
-|  {/* fprintf(stderr, "%s\n", "statement-list") */;$$=node("statement-list", 0);}
+statement-list: statement-list statement{$$=node("statement-list", 2, $1, $2);}
+|  {$$=node("statement-list", 0);}
 ;
 
-statement: expression-stmt {/* fprintf(stderr, "%s\n", "statement") */;$$=node("statement", 1, $1);}
-| compound-stmt {/* fprintf(stderr, "%s\n", "statement") */;$$=node("statement", 1, $1);}
-| selection-stmt {/* fprintf(stderr, "%s\n", "statement") */;$$=node("statement", 1, $1);}
-| iteration-stmt {/* fprintf(stderr, "%s\n", "statement") */;$$=node("statement", 1, $1);}
-| return-stmt {/* fprintf(stderr, "%s\n", "statement") */;$$=node("statement", 1, $1);}
+statement: expression-stmt {$$=node("statement", 1, $1);}
+| compound-stmt {$$=node("statement", 1, $1);}
+| selection-stmt {$$=node("statement", 1, $1);}
+| iteration-stmt {$$=node("statement", 1, $1);}
+| return-stmt {$$=node("statement", 1, $1);}
 ;
 
-expression-stmt: expression SEMICOLON{/* fprintf(stderr, "%s\n", "expression-stmt") */;$$ = node("expression-stmt", 2, $1, $2);}
-| SEMICOLON{/* fprintf(stderr, "%s\n", "expression-stmt") */;$$ = node("expression-stmt", 1, $1);}
+expression-stmt: expression SEMICOLON{$$ = node("expression-stmt", 2, $1, $2);}
+| SEMICOLON{$$ = node("expression-stmt", 1, $1);}
 ;
 
-selection-stmt: IF LPAREN expression RPAREN statement {/* fprintf(stderr, "%s\n", "selection-stmt") */;$$=node("selection-stmt", 5, $1, $2, $3, $4, $5);}
-| IF LPAREN expression RPAREN statement ELSE statement{/* fprintf(stderr, "%s\n", "selection-stmt") */;$$=node("selection-stmt", 7, $1, $2, $3, $4, $5, $6, $7);}
+selection-stmt: IF LPAREN expression RPAREN statement {$$=node("selection-stmt", 5, $1, $2, $3, $4, $5);}
+| IF LPAREN expression RPAREN statement ELSE statement{$$=node("selection-stmt", 7, $1, $2, $3, $4, $5, $6, $7);}
 ;
 
-iteration-stmt: WHILE LPAREN expression RPAREN statement {/* fprintf(stderr, "%s\n", "iteration-stmt") */;$$ = node("iteration-stmt", 5, $1, $2, $3, $4, $5);}
+iteration-stmt: WHILE LPAREN expression RPAREN statement {$$ = node("iteration-stmt", 5, $1, $2, $3, $4, $5);}
 ;
 
-return-stmt: RETURN SEMICOLON{/* fprintf(stderr, "%s\n", "return-stmt") */;$$ = node("return-stmt", 2, $1, $2);}
-| RETURN expression SEMICOLON{/* fprintf(stderr, "%s\n", "return-stmt") */;$$ = node("return-stmt", 3, $1, $2, $3);}
+return-stmt: RETURN SEMICOLON{$$ = node("return-stmt", 2, $1, $2);}
+| RETURN expression SEMICOLON{$$ = node("return-stmt", 3, $1, $2, $3);}
 ;
 
-expression: var ASSIGN expression{/* fprintf(stderr, "%s\n", "expression") */;$$ = node("expression", 3, $1, $2, $3);}
-| simple-expression{/* fprintf(stderr, "%s\n", "expression") */;$$ = node("expression", 1, $1);}
+expression: var ASSIGN expression{$$ = node("expression", 3, $1, $2, $3);}
+| simple-expression{$$ = node("expression", 1, $1);}
 ;
 
-var: ID{/* fprintf(stderr, "%s\n", "var") */;$$ = node("var", 1, $1);}
-|ID LBRACKET expression RBRACKET{/* fprintf(stderr, "%s\n", "var") */;$$ = node("var", 4, $1, $2, $3, $4);}
+var: ID{$$ = node("var", 1, $1);}
+|ID LBRACKET expression RBRACKET{$$ = node("var", 4, $1, $2, $3, $4);}
 ;
 
-simple-expression: additive-expression relop additive-expression{/* fprintf(stderr, "%s\n", "simple-expression") */;$$=node("simple-expression", 3, $1, $2, $3);}
-|additive-expression{/* fprintf(stderr, "%s\n", "simple-expression") */;$$=node("simple-expression", 1, $1);}
+simple-expression: additive-expression relop additive-expression{$$=node("simple-expression", 3, $1, $2, $3);}
+|additive-expression{$$=node("simple-expression", 1, $1);}
 ;
 
-relop: LESSEQ{/* fprintf(stderr, "%s\n", "relop") */;$$=node("relop", 1, $1);}
-| LESS{/* fprintf(stderr, "%s\n", "relop") */;$$=node("relop", 1, $1);}
-| GREATER{/* fprintf(stderr, "%s\n", "relop") */;$$=node("relop", 1, $1);}
-|GREATEREQ{/* fprintf(stderr, "%s\n", "relop") */;$$=node("relop", 1, $1);}
-| EQ{/* fprintf(stderr, "%s\n", "relop") */;$$=node("relop", 1, $1);}
-| NEQ{/* fprintf(stderr, "%s\n", "relop") */;$$=node("relop", 1, $1);}
+relop: LESSEQ{$$=node("relop", 1, $1);}
+| LESS{$$=node("relop", 1, $1);}
+| GREATER{$$=node("relop", 1, $1);}
+|GREATEREQ{$$=node("relop", 1, $1);}
+| EQ{$$=node("relop", 1, $1);}
+| NEQ{$$=node("relop", 1, $1);}
 ;
 
-additive-expression: additive-expression addop term{/* fprintf(stderr, "%s\n", "additive-expression") */;$$=node("additive-expression", 3, $1, $2, $3);}
-|term{/* fprintf(stderr, "%s\n", "additive-expression") */;$$=node("additive-expression", 1, $1);}
+additive-expression: additive-expression addop term{$$=node("additive-expression", 3, $1, $2, $3);}
+|term{$$=node("additive-expression", 1, $1);}
 ;
 
-addop: ADD{/* fprintf(stderr, "%s\n", "addop") */;$$=node("addop", 1, $1);}
-| MINUS{/* fprintf(stderr, "%s\n", "addop") */;$$=node("addop", 1, $1);}
+addop: ADD{$$=node("addop", 1, $1);}
+| MINUS{$$=node("addop", 1, $1);}
 ;
 
-term: term mulop factor{/* fprintf(stderr, "%s\n", "term") */;$$=node("term", 3, $1, $2, $3);}
-| factor{/* fprintf(stderr, "%s\n", "term") */;$$=node("term", 1, $1);}
+term: term mulop factor{$$=node("term", 3, $1, $2, $3);}
+| factor{$$=node("term", 1, $1);}
 ;
 
-mulop: MUL{/* fprintf(stderr, "%s\n", "mulop") */;$$=node("mulop", 1, $1);}
-| DIV{/* fprintf(stderr, "%s\n", "mulop") */;$$=node("mulop", 1, $1);}
+mulop: MUL{$$=node("mulop", 1, $1);}
+| DIV{$$=node("mulop", 1, $1);}
 ;
 
-factor: LPAREN expression RPAREN{/* fprintf(stderr, "%s\n", "factor") */;$$=node("factor", 3, $1, $2, $3);}
-| var{/* fprintf(stderr, "%s\n", "factor") */;$$=node("factor", 1, $1);}
-| call{/* fprintf(stderr, "%s\n", "factor") */;$$=node("factor", 1, $1);}
-| integer{/* fprintf(stderr, "%s\n", "factor") */;$$=node("factor", 1, $1);}
-| float{/* fprintf(stderr, "%s\n", "factor") */;$$=node("factor", 1, $1);}
+factor: LPAREN expression RPAREN{$$=node("factor", 3, $1, $2, $3);}
+| var{$$=node("factor", 1, $1);}
+| call{$$=node("factor", 1, $1);}
+| integer{$$=node("factor", 1, $1);}
+| float{$$=node("factor", 1, $1);}
 ;
 
-integer: INTEGER{/* fprintf(stderr, "%s\n", "integer") */;$$=node("integer", 1, $1);};
+integer: INTEGER{$$=node("integer", 1, $1);};
 
-float: FLOAT{/* fprintf(stderr, "%s\n", "float") */;$$=node("float", 1, $1);};
+float: FLOAT{$$=node("float", 1, $1);};
 
-call: ID LPAREN args RPAREN{/* fprintf(stderr, "%s\n", "call") */;$$=node("call", 4, $1, $2, $3, $4);}
+call: ID LPAREN args RPAREN{$$=node("call", 4, $1, $2, $3, $4);}
 ;
 
-args: arg-list{/* fprintf(stderr, "%s\n", "args") */;$$=node("args", 1, $1);}
-| {/* fprintf(stderr, "%s\n", "factor") */;$$=node("factor", 0);}
+args: arg-list{$$=node("args", 1, $1);}
+| {$$=node("factor", 0);}
 ;
 
-arg-list: arg-list COMMA expression{/* fprintf(stderr, "%s\n", "arg-list") */;$$=node("arg-list", 3, $1, $2, $3);}
-| expression{/* fprintf(stderr, "%s\n", "arg-list") */;$$=node("arg-list", 1, $1);}
+arg-list: arg-list COMMA expression{$$=node("arg-list", 3, $1, $2, $3);}
+| expression{$$=node("arg-list", 1, $1);}
 ;
 
 %%
@@ -246,7 +246,7 @@ void yyerror(const char *s)
 {
     // TO STUDENTS: This is just an example.
     // You can customize it as you like.
-    /* fprintf(stderr, "error at line %d column %d: %s\n", lines, pos_start, s) */;
+    
 }
 
 /// Parse input from file `input_path`, and prints the parsing results
@@ -259,7 +259,7 @@ syntax_tree *parse(const char *input_path)
     {
         if (!(yyin = fopen(input_path, "r")))
         {
-            /* fprintf(stderr, "[ERR] Open input file %s failed.\n", input_path) */;
+            
             exit(1);
         }
     }
@@ -277,7 +277,7 @@ syntax_tree *parse(const char *input_path)
 
 /// A helper function to quickly construct a tree node.
 ///
-/// e.g. /* fprintf(stderr, "%s\n", "program") */;$$ = node("program", 1, $1);
+/// e.g. $$ = node("program", 1, $1);
 syntax_tree_node *node(const char *name, int children_num, ...)
 {
     syntax_tree_node *p = new_syntax_tree_node(name);
