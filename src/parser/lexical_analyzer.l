@@ -59,7 +59,7 @@ while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;}
 \] { advance(1); pass_node(yytext);  return RBRACKET;} 
 \{ { advance(1); pass_node(yytext);  return LBRACE;}
 "}" { advance(1); pass_node(yytext);  return RBRACE;} 
-"/*"((\*)*[^\*]|(\/))*(\*)*"*/" {
+"/*"((\*)*[^\*\/]|(\/))*(\*)*"*/" {
      int last_lf_pos=0;
      int lf_num=0;
      for(int i = 0; i < strlen(yytext); i++){
@@ -75,7 +75,6 @@ while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;}
      }
      else
           advance(strlen(yytext));
-     return COMMENT;
 }
 [a-zA-Z]+ { advance(strlen(yytext)); pass_node(yytext);  return ID;} 
 [0-9]+ { advance(strlen(yytext)); pass_node(yytext);  return INTEGER;} 
