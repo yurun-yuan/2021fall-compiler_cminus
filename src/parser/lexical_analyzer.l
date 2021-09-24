@@ -59,10 +59,27 @@ while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;}
 \] { advance(1); pass_node(yytext);  return RBRACKET;} 
 \{ { advance(1); pass_node(yytext);  return LBRACE;}
 "}" { advance(1); pass_node(yytext);  return RBRACE;} 
-"/*"((\*)*[^\*]|(\/))*(\*)*"*/" {advance(strlen(yytext));pass_node(yytext);}
+"/*"((\*)*[^\*]|(\/))*(\*)*"*/" {
+     int last_lf_pos=0;
+     int lf_num=0;
+     for(int i = 0; i < strlen(yytext); i++){
+          if(yytext[i] == '\n'){
+               lf_num ++;
+               last_lf_pos = i;
+          }
+     }
+     if(lf_num){
+          lines += lf_num;
+          pos_start = pos_end;
+          pos_end = strlen(yytext) - last_lf_pos;
+     }
+     else
+          advance(strlen(yytext));
+     return COMMENT;
+}
 [a-zA-Z]+ { advance(strlen(yytext)); pass_node(yytext);  return ID;} 
 [0-9]+ { advance(strlen(yytext)); pass_node(yytext);  return INTEGER;} 
-([0-9]+\.|[0-9]*\.[0-9]+) { advance(strlen(yytext)); pass_node(yytext);  return FLOATPOINT;} 
+([0-9]+\.|[0-9]*\.[0-9]+) { advance(strlen(yytext)); pass_node(yytext); return FLOATPOINT;} 
 . { advance(1);  return ERROR;}
 
 %%
