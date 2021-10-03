@@ -1,0 +1,19 @@
+/**
+ * @file test1.cminus
+ * @author ryan
+ * @brief A test file for c-minus
+ * 
+ */
+
+float func(int a[], int b)
+{
+    if (/* inline comment */ func(a + 1, b + 1))
+        if (1)
+            if (2)
+                if (3)
+                    a = a + 1;
+                else
+                    return 1.;
+            else
+                return 2.;
+}
