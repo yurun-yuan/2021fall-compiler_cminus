@@ -37,13 +37,13 @@ if { advance(strlen(yytext)); pass_node(yytext);  return IF;}
 else { advance(strlen(yytext)); pass_node(yytext);  return ELSE;} 
 return { advance(strlen(yytext)); pass_node(yytext);  return RETURN;} 
 void { advance(strlen(yytext)); pass_node(yytext);  return VOID;} 
-while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;} 
-\n { lines++; pos_start = pos_end = 0;}
+while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;}
+(\r\n|\r|\n) { lines++; pos_start = pos_end = 0;}
 [ \t] { advance(1);} 
 \+ { advance(1); pass_node(yytext);  return ADD;} 
 \- { advance(1); pass_node(yytext);  return MINUS;}
 \* { advance(1); pass_node(yytext);  return MUL;}
-\/ { advance(1); pass_node(yytext);  return DIV;} 
+\/ { advance(1); pass_node(yytext);  return DIV;}
 \< { advance(1); pass_node(yytext);  return LESS;} 
 \<= { advance(2); pass_node(yytext);  return LESSEQ;} 
 > { advance(1); pass_node(yytext);  return GREATER;}
