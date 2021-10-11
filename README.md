@@ -5,14 +5,16 @@
 ## 目前已布置的实验
 
 * [lab1](./Documentations/1-parser/)
-  + DDL：2021-10-03 23:59:59 (UTC+8)
+  + DDL：2021-10-06(~~10-03~~) 23:59:59 (UTC+8)
+* [lab2](./Documentations/2-ir-gen-warmup/)
+  + DDL：2021-10-22 23:59:59 (UTC+8)
 
 ## FAQ: How to merge upstream remote branches
 
 In brief, you need another alias for upstream repository (we assume you are now in your local copy of forked repository on Gitlab):
 
 ```shell
-$ git remote add upstream http://222.195.68.197/staff/2021fall-compiler_cminus.git
+$ git remote add upstream http://211.86.152.198:8080/staff/2021fall-compiler_cminus.git
 ```
 
 Then try to merge remote commits to your local repository:
