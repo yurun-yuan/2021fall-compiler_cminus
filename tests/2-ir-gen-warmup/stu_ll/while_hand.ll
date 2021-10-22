@@ -3,13 +3,16 @@ define dso_local i32 @main() #0{
     %i_ptr = alloca i32
     store i32 10, i32* %a_ptr
     store i32 0, i32* %i_ptr
+
+    ; The basic block must end with a br or ret. 
     br label %loop_entry
 
+    ; The condition of `while` statement. 
 loop_entry:
     %i_val1 = load i32, i32* %i_ptr
     %comp_res = icmp slt i32 %i_val1, 10
     br i1 %comp_res, label %loop_cont, label %loop_fin
-
+    ; The body of `while` statement
 loop_cont:
     %iadd = add i32 %i_val1, 1
     store i32 %iadd, i32* %i_ptr
