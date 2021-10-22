@@ -6,6 +6,22 @@
 
 在`.ll`文件中， 每个BasicBlock以标签开头/在函数体首行，以`ret`或`br`语句结束。在`cpp`文件中类似，每个BasicBlock均使用`BasicBlock::create()`函数显式创造，并使用语句`build->set_insert_point()`生成对应`.ll`文件中的label标签、确定后续语句与label标签的位置关系等；在插入新的基本块初始点时，上一基本块生成的IR指令也必须以`br`/`ret`结束。**`.ll`中的每个BasicBlock与`.cpp`中定义的`BasicBlock`对象一一对应**。在跳转语句`br`中，`br`接受参数label，而`cpp`中`build->create_cond_br()`/`build->cread_br()`接受`BasicBlock`对象为参数，其效果一致。
 
+1. `assign`
+
+   在`.cpp`文件中使用`auto bb = BasicBlock::create(module, "entry", mainFun);`显式定义基本块，使用`builder->set_insert_point(bb);`生成label标签。在`.ll`文件中对应`label_entry`标签，到`ret`语句结束。
+
+2. `if`
+
+   在`.cpp`文件中使用`BasicBlock::create`函数定义了`entry`, `trueBB`, `falseBB` 3个基本块，在`.ll`文件中对应`label_entry`, `label_trueBB`, `label_falseBB`标签。
+
+3. `fun`
+
+   两个函数各有一个基本块，均叫做`label_entry`. 
+
+4. `while`
+
+   含有4个基本块：`entry`, `loopEntry`, `trueBB`, `falseBB`, 分别是`while`语句之前的基本块，`while`条件判断块，`while`循环体块和`while`语句之后的基本块。在`.cpp`中使用`BasicBlock::create`分别定义。
+
 ## 问题2: Visitor Pattern
 分析 `calc` 程序在输入为 `4 * (8 + 4 - 1) / 2` 时的行为：
 1. 请画出该表达式对应的抽象语法树（使用 `calc_ast.hpp` 中的 `CalcAST*` 类型和在该类型中存储的值来表示），并给节点使用数字编号。
@@ -47,7 +63,7 @@
   - `%2 = getelementptr [10 x i32], [10 x i32]* %1, i32 0, i32 %0`
   - `%2 = getelementptr i32, i32* %1 i32 %0`
 
-在第一条IR指令中，`%1`的类型为`[10 x i32]*`，使用第一组`<type, index>`计算得到`%1+0*sizeof([10 x i32])`，类型为`i32*`。使用第二组`<type, index>`在第一步结果基础上偏移`(%0)*sizeof(i32)`，`%2`的类型为`i32*`。
+在第一条IR指令中，`%1`的类型为`[10 x i32]*`，使用第一组`<type, index>`计算得到`%1+0*sizeof([10 x i32])`，类型为`[10 x i32]*`。使用第二组`<type, index>`在第一步结果基础上偏移`(%0)*sizeof(i32)`，`%2`的类型为`i32*`。
 
 在第二条IR指令中，`%1`的类型为`i32*`。`i32 %0`表示在`%1`的基础上偏移`(%0)*sizeof(i32)`，`%2`的类型为`i32*`。
 
@@ -89,6 +105,8 @@
    转化为16进制，即`0x40163851E0000000`. 
 
 2. 在阅读`calc_ast.cpp/hpp`时，类之间的继承关系复杂。
+
+   在通过Parsing tree构造AST时，需要注意到`Factor`节点在AST中无直接对应节点，而是直接连接其生成的`Expresion`或`Num`. 
 
 3. 在理解`calc_build.cpp`时，被`visit`与`accept`函数关系困扰。`visit`与`accept`相互调用，深感调用关系复杂。
 
