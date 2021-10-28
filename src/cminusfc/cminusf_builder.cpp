@@ -24,6 +24,7 @@
 #define GET_CONST(astNum) \
     (astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val)
 
+// TODO Render this a member function
 /**
  * @brief Convert `enum CminusType` to `Type *`
  * @arg CminusType: a `enum CminusType` value
@@ -105,11 +106,27 @@ void CminusfBuilder::visit(ASTReturnStmt &node) {}
 
 void CminusfBuilder::visit(ASTVar &node)
 {
+    // TODO Can be extracted as a function
+    // ========================================
+    auto var = scope.find(node.id);
+    Value *obj_addr;
+    if (node.expression) // is an array
+    {
+        node.expression->accept(*this);
+        obj_addr = builder->create_gep(var, {CONST_INT(0), cal_stack.top()});
+        cal_stack.pop();
+    }
+    else
+        obj_addr = var;
+    //=========================================
+    cal_stack.push(builder->create_load(obj_addr));
 }
 
 void CminusfBuilder::visit(ASTAssignExpression &node)
 {
     node.expression->accept(*this);
+    // TODO Can be extracted as a function
+    // ========================================
     auto var = scope.find(node.var->id);
     Value *obj_addr;
     if (node.var->expression) // is an array
@@ -120,6 +137,7 @@ void CminusfBuilder::visit(ASTAssignExpression &node)
     }
     else
         obj_addr = var;
+    //=========================================
     cal_stack.pop();
     builder->create_store(cal_stack.top(), obj_addr);
     cal_stack.push(builder->create_load(obj_addr));
@@ -145,6 +163,9 @@ void CminusfBuilder::visit(ASTSimpleExpression &node)
             right = builder->create_sitofp(right, GET_FLOAT);
         resType = GET_FLOAT;
     }
+
+    // TODO Use function pointer to member functions 
+    // to avoid the duplication
     if (resType == GET_INT32)
     {
         switch (node.op)
