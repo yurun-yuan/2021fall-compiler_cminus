@@ -16,6 +16,14 @@
 #define GET_FLOAT Type::get_float_type(MOD)
 #define GET_VOID Type::get_void_type(MOD)
 
+#define CONST_INT(num) \
+    ConstantInt::get(num, MOD)
+#define CONST_FP(num) \
+    ConstantFP::get(num, MOD)
+
+#define GET_CONST(astNum) \
+    (astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val)
+
 /**
  * @brief Convert `enum CminusType` to `Type *`
  * @arg CminusType: a `enum CminusType` value
@@ -58,7 +66,10 @@ void CminusfBuilder::visit(ASTProgram &node)
     }
 }
 
-void CminusfBuilder::visit(ASTNum &node) {}
+void CminusfBuilder::visit(ASTNum &node)
+{
+    cal_stack.push(GET_CONST(node));
+}
 
 void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
@@ -74,13 +85,17 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
         this->scope.push(node.id, this->builder->create_alloca(finalType));
 }
 
-void CminusfBuilder::visit(ASTFunDeclaration &node){}
+void CminusfBuilder::visit(ASTFunDeclaration &node) {}
 
 void CminusfBuilder::visit(ASTParam &node) {}
 
 void CminusfBuilder::visit(ASTCompoundStmt &node) {}
 
-void CminusfBuilder::visit(ASTExpressionStmt &node) {}
+void CminusfBuilder::visit(ASTExpressionStmt &node)
+{
+    node.expression->accept(*this);
+    cal_stack.pop();
+}
 
 void CminusfBuilder::visit(ASTSelectionStmt &node) {}
 
@@ -88,11 +103,102 @@ void CminusfBuilder::visit(ASTIterationStmt &node) {}
 
 void CminusfBuilder::visit(ASTReturnStmt &node) {}
 
-void CminusfBuilder::visit(ASTVar &node) {}
+void CminusfBuilder::visit(ASTVar &node)
+{
+}
 
-void CminusfBuilder::visit(ASTAssignExpression &node) {}
+void CminusfBuilder::visit(ASTAssignExpression &node)
+{
+    node.expression->accept(*this);
+    auto var = scope.find(node.var->id);
+    Value *obj_addr;
+    if (node.var->expression) // is an array
+    {
+        node.var->expression->accept(*this);
+        obj_addr = builder->create_gep(var, {CONST_INT(0), cal_stack.top()});
+        cal_stack.pop();
+    }
+    else
+        obj_addr = var;
+    cal_stack.pop();
+    builder->create_store(cal_stack.top(), obj_addr);
+    cal_stack.push(builder->create_load(obj_addr));
+}
 
-void CminusfBuilder::visit(ASTSimpleExpression &node) {}
+void CminusfBuilder::visit(ASTSimpleExpression &node)
+{
+    node.additive_expression_l->accept(*this);
+    node.additive_expression_r->accept(*this);
+    auto right = cal_stack.top();
+    cal_stack.pop();
+    auto left = cal_stack.top();
+    cal_stack.pop();
+    Value *res;
+    Type *resType;
+    if (left->get_type() == right->get_type())
+        resType = left->get_type();
+    else
+    {
+        if (left->get_type() == GET_INT32)
+            left = builder->create_sitofp(left, GET_FLOAT);
+        else
+            right = builder->create_sitofp(right, GET_FLOAT);
+        resType = GET_FLOAT;
+    }
+    if (resType == GET_INT32)
+    {
+        switch (node.op)
+        {
+        case OP_LT:
+            res = builder->create_icmp_lt(left, right);
+            break;
+        case OP_LE:
+            res = builder->create_icmp_le(left, right);
+            break;
+        case OP_EQ:
+            res = builder->create_icmp_eq(left, right);
+            break;
+        case OP_NEQ:
+            res = builder->create_icmp_ne(left, right);
+            break;
+        case OP_GT:
+            res = builder->create_icmp_gt(left, right);
+            break;
+        case OP_GE:
+            res = builder->create_icmp_ge(left, right);
+            break;
+        default:
+            break;
+        }
+    }
+    else
+    {
+        switch (node.op)
+        {
+        case OP_LT:
+            res = builder->create_fcmp_lt(left, right);
+            break;
+        case OP_LE:
+            res = builder->create_fcmp_le(left, right);
+            break;
+        case OP_EQ:
+            res = builder->create_fcmp_eq(left, right);
+            break;
+        case OP_NEQ:
+            res = builder->create_fcmp_ne(left, right);
+            break;
+        case OP_GT:
+            res = builder->create_fcmp_gt(left, right);
+            break;
+        case OP_GE:
+            res = builder->create_fcmp_ge(left, right);
+            break;
+        default:
+            break;
+        }
+    }
+    cal_stack.push(res);
+}
 
 void CminusfBuilder::visit(ASTAdditiveExpression &node) {}
 
