@@ -86,7 +86,22 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
         this->scope.push(node.id, this->builder->create_alloca(finalType));
 }
 
-void CminusfBuilder::visit(ASTFunDeclaration &node) {}
+void CminusfBuilder::visit(ASTFunDeclaration &node) {
+    std::vector<Type *> Args{};
+    for (auto &&param : node.params)
+    {
+        param->accept(*this);
+        Type *ty;
+        CT2T(param->type, ty)
+        Args.push_back(ty);
+    }
+    Type *returnType;
+    CT2T(node.type, returnType)
+    auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
+    scope.push(node.id, func);
+    scope.enter();
+    node.compound_stmt->accept(*this);
+}
 
 void CminusfBuilder::visit(ASTParam &node) {}
 
