@@ -133,6 +133,7 @@ private:
     IRBuilder *builder;
     Scope scope;
     std::unique_ptr<Module> module;
+    std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
 
     // Use stack to evaluate expressions
     std::stack<Value *> cal_stack;

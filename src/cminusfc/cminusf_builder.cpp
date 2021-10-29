@@ -86,11 +86,12 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
         this->scope.push(node.id, this->builder->create_alloca(finalType));
 }
 
-void CminusfBuilder::visit(ASTFunDeclaration &node) {
+void CminusfBuilder::visit(ASTFunDeclaration &node)
+{
     std::vector<Type *> Args{};
     for (auto &&param : node.params)
     {
-        param->accept(*this);
+        // TODO Determine wether it is an array
         Type *ty;
         CT2T(param->type, ty)
         Args.push_back(ty);
@@ -99,13 +100,28 @@ void CminusfBuilder::visit(ASTFunDeclaration &node) {
     CT2T(node.type, returnType)
     auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
     scope.push(node.id, func);
-    scope.enter();
     node.compound_stmt->accept(*this);
+    params = &node.params;
 }
 
-void CminusfBuilder::visit(ASTParam &node) {}
+void CminusfBuilder::visit(ASTParam &node) {
+    // TODO Determine wether it is an array
+}
 
-void CminusfBuilder::visit(ASTCompoundStmt &node) {}
+void CminusfBuilder::visit(ASTCompoundStmt &node)
+{
+    scope.enter();
+    if (params) // This compoundStmt is a function body
+    {
+        for (auto &&param : *params)
+            param->accept(*this);
+        params = nullptr;
+    }
+    for (auto &&varDecl : node.local_declarations)
+        varDecl->accept(*this);
+    for (auto &&stmt : node.statement_list)
+        stmt->accept(*this);
+}
 
 void CminusfBuilder::visit(ASTExpressionStmt &node)
 {
@@ -179,7 +195,7 @@ void CminusfBuilder::visit(ASTSimpleExpression &node)
         resType = GET_FLOAT;
     }
 
-    // TODO Use function pointer to member functions 
+    // TODO Use function pointer to member functions
     // to avoid the duplication
     if (resType == GET_INT32)
     {
@@ -240,4 +256,6 @@ void CminusfBuilder::visit(ASTAdditiveExpression &node) {}
 
 void CminusfBuilder::visit(ASTTerm &node) {}
 
-void CminusfBuilder::visit(ASTCall &node) {}
+void CminusfBuilder::visit(ASTCall &node) {
+    // TODO If the argment is of arrayType, convert it to pointer
+}
