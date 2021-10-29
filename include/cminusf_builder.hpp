@@ -10,6 +10,16 @@
 #include <map>
 #include <stack>
 
+/**
+ * Return module;
+ * The type is Module *
+ */
+#define MOD this->module.get()
+
+#define GET_INT32 Type::get_int32_type(MOD)
+#define GET_FLOAT Type::get_float_type(MOD)
+#define GET_VOID Type::get_void_type(MOD)
+
 class Scope
 {
 public:
@@ -35,7 +45,7 @@ public:
     // return false if this name already exits
     bool push(std::string name, Value *val)
     {
-        auto result = inner[inner.size() - 1].insert({name, val});
+        auto result = inner.back().insert({name, val});
         return result.second;
     }
 
@@ -130,11 +140,37 @@ private:
     virtual void visit(ASTTerm &) override final;
     virtual void visit(ASTCall &) override final;
 
+    /**
+     * @brief Convert `enum CminusType` to `Type *`
+     * @arg CminusType: a `enum CminusType` value
+     * @arg res: a `Type *` value. The converted value will be assigned to it.
+     * 
+     */
+    Type *CminusTypeConvertor(enum CminusType c)
+    {
+        switch (c)
+        {
+        case TYPE_INT:
+            return GET_INT32;
+            break;
+        case TYPE_FLOAT:
+            return GET_FLOAT;
+            break;
+        case TYPE_VOID:
+            return GET_VOID;
+            break;
+        default:
+            break;
+        }
+    }
+
     IRBuilder *builder;
     Scope scope;
     std::unique_ptr<Module> module;
+    Function *lastEnteredFun = nullptr;
+    bool enteredFun = true;
     std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
-
+    std::list<Argument *>::iterator curArg;
     // Use stack to evaluate expressions
     std::stack<Value *> cal_stack;
 };
