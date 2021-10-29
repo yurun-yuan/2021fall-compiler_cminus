@@ -1,4 +1,5 @@
 #include "cminusf_builder.hpp"
+#include "logging.hpp"
 
 // use these macros to get constant value
 #define CONST_FP(num) \
@@ -45,8 +46,6 @@
         break;                \
     }
 
-#define INIT(Ty) ConstantZero::get((Ty), MOD)
-
 // You can define global variables here
 // to store state
 
@@ -60,7 +59,7 @@
 
 void CminusfBuilder::visit(ASTProgram &node)
 {
-    this->scope.enter();
+    LOG(INFO) << "Enter program";
     for (auto &&declaration : node.declarations)
     {
         declaration->accept(*this);
@@ -69,25 +68,41 @@ void CminusfBuilder::visit(ASTProgram &node)
 
 void CminusfBuilder::visit(ASTNum &node)
 {
+    LOG(INFO) << "Enter num";
     cal_stack.push(GET_CONST(node));
 }
 
 void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
+    LOG(INFO) << "Enter var decl " << node.id;
     Type *baseType, *finalType;
+    Constant *init_val = nullptr;
     CT2T(node.type, baseType)
+    if (baseType == GET_INT32)
+        LOG_INFO << "is int";
     if (node.num) // is an array
+    {
+        LOG(INFO) << "is array";
         finalType = ArrayType::get(baseType, node.num->i_val);
+        init_val = ConstantZero::get(baseType, MOD);
+    }
     else
         finalType = baseType;
+    LOG(INFO) << "\tcheckpoint1";
     if (this->scope.in_global())
-        this->scope.push(node.id, GlobalVariable::create(node.id, MOD, finalType, false, INIT(finalType)));
+    {
+        auto val = GlobalVariable::create(node.id, MOD, finalType, false, init_val);
+        LOG(INFO) << "\tcheckpoint2";
+        this->scope.push(node.id, val);
+    }
     else
         this->scope.push(node.id, this->builder->create_alloca(finalType));
+    LOG(INFO) << "Exit var decl" << node.id;
 }
 
 void CminusfBuilder::visit(ASTFunDeclaration &node)
 {
+    LOG(INFO) << "Enter fun decl " << node.id << "";
     std::vector<Type *> Args{};
     for (auto &&param : node.params)
     {
@@ -100,22 +115,35 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
     CT2T(node.type, returnType)
     auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
     scope.push(node.id, func);
-    node.compound_stmt->accept(*this);
+    lastEnteredFun = func;
+    enteredFun = true;
+    auto bb = BasicBlock::create(MOD, "entry", func);
+    builder->set_insert_point(bb);
     params = &node.params;
+    node.compound_stmt->accept(*this);
 }
 
-void CminusfBuilder::visit(ASTParam &node) {
+void CminusfBuilder::visit(ASTParam &node)
+{
     // TODO Determine wether it is an array
+    Type *ty;
+    CT2T(node.type, ty)
+    auto alloca = builder->create_alloca(ty);
+    scope.push(node.id, alloca);
+    builder->create_store(*curArg++, alloca);
 }
 
 void CminusfBuilder::visit(ASTCompoundStmt &node)
 {
+    LOG(INFO) << "Enter compoundstmt";
     scope.enter();
-    if (params) // This compoundStmt is a function body
+    if (enteredFun) // This compoundStmt is a function body
     {
+        curArg = lastEnteredFun->arg_begin();
         for (auto &&param : *params)
             param->accept(*this);
         params = nullptr;
+        enteredFun = false;
     }
     for (auto &&varDecl : node.local_declarations)
         varDecl->accept(*this);
@@ -256,6 +284,7 @@ void CminusfBuilder::visit(ASTAdditiveExpression &node) {}
 
 void CminusfBuilder::visit(ASTTerm &node) {}
 
-void CminusfBuilder::visit(ASTCall &node) {
+void CminusfBuilder::visit(ASTCall &node)
+{
     // TODO If the argment is of arrayType, convert it to pointer
 }
