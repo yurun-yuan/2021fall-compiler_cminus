@@ -94,12 +94,7 @@ void CminusfBuilder::visit(ASTParam &node)
     // TODO Refomat
     Type *ty;
     if (node.isarray)
-    {
-        if (node.type == TYPE_INT)
-            ty = Type::get_int32_ptr_type(MOD);
-        else if (node.type == TYPE_FLOAT)
-            ty = Type::get_float_ptr_type(MOD);
-    }
+        ty = PointerType::get(CminusTypeConvertor(node.type));
     else
         ty = CminusTypeConvertor(node.type);
     auto alloca = builder->create_alloca(ty);
@@ -133,6 +128,7 @@ void CminusfBuilder::visit(ASTCompoundStmt &node)
         else
             stmt->accept(*this);
     }
+    scope.exit();
 }
 
 void CminusfBuilder::visit(ASTExpressionStmt &node)
@@ -148,8 +144,10 @@ void CminusfBuilder::visit(ASTSelectionStmt &node)
     auto trueBB = newBasicBlock();
     auto falseBB = node.else_statement ? newBasicBlock() : exitBB;
     node.expression->accept(*this);
-    builder->create_cond_br(cal_stack.top(), trueBB, falseBB);
+    auto cond_res = cal_stack.top();
     cal_stack.pop();
+    compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(cond_res, trueBB, falseBB);
     builder->set_insert_point(trueBB);
     node.if_statement->accept(*this);
     builder->create_br(exitBB);
@@ -170,8 +168,10 @@ void CminusfBuilder::visit(ASTIterationStmt &node)
     builder->create_br(condBB);
     builder->set_insert_point(condBB);
     node.expression->accept(*this);
-    builder->create_cond_br(cal_stack.top(), loopBodyBB, exitBB);
+    auto cond_res = cal_stack.top();
     cal_stack.pop();
+    compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(cond_res, loopBodyBB, exitBB);
     builder->set_insert_point(loopBodyBB);
     node.statement->accept(*this);
     builder->create_br(condBB);
@@ -214,7 +214,13 @@ void CminusfBuilder::visit(ASTVar &node)
         builder->create_br(posBB);
         builder->set_insert_point(posBB);
 
-        obj_addr = builder->create_gep(var, {CONST_INT(0), index});
+        if (var->get_type()->is_array_type())
+            obj_addr = builder->create_gep(var, {CONST_INT(0), index});
+        else if (var->get_type()->is_pointer_type())
+        {
+            var = builder->create_load(var);
+            obj_addr = builder->create_gep(var, {index});
+        }
         cal_stack.pop();
         cal_stack.push(builder->create_load(obj_addr));
     }
