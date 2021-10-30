@@ -7,9 +7,24 @@
 
 实验中遇到哪些挑战
 
-1. 表达式求值
+1. 使用栈对表达式求值
+
 2. implicit 类型转换
+
 3. 函数声明中进入新作用域的时机
+
+4. 数组类型转化为指针的时机
+
+   Solution：如果数组在表达式中，则转化为指针类型。
+   
+5. TODO
+
+   优化：数值未被使用的表达式可不求值。
+
+6. 类型转换时需考虑`int1`类型
+7. `scope` 中的类型问题
+   `scope` 中可能出现`GlobalVariable`, `AllocaInst`, `Function`类型。在取出元素后难以对数据类型判断。
+   Solution: `GlobalVariable`, `AllocaInst`在`create`时均把变量类型的指针类型作为其`type`域的值。使用`var->get_type()->get_pointer_element_type()`即可得到定义的变量的类型。
 
 ## 实验设计
 
