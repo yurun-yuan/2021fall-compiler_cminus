@@ -1,10 +1,6 @@
 #include "cminusf_builder.hpp"
 #include "logging.hpp"
 
-// use these macros to get constant value
-#define CONST_ZERO(type) \
-    ConstantZero::get(var_type, module.get())
-
 #define CONST_INT(num) \
     (ConstantInt::get(num, MOD))
 #define CONST_FP(num) \
@@ -206,6 +202,18 @@ void CminusfBuilder::visit(ASTVar &node)
         node.expression->accept(*this);
         auto index = cal_stack.top();
         compulsiveTypeConvert(index, GET_INT32);
+
+        // Examine wether the index is negative
+        auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
+        auto negBB = newBasicBlock();
+        auto posBB = newBasicBlock();
+        builder->create_cond_br(isIdxNeg, negBB, posBB);
+        builder->set_insert_point(negBB);
+        auto negExcept = scope.find("neg_idx_except");
+        builder->create_call(negExcept, {});
+        builder->create_br(posBB);
+        builder->set_insert_point(posBB);
+
         obj_addr = builder->create_gep(var, {CONST_INT(0), index});
         cal_stack.pop();
         cal_stack.push(builder->create_load(obj_addr));
