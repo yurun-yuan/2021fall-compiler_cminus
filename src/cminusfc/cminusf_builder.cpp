@@ -1,6 +1,116 @@
 #include "cminusf_builder.hpp"
 #include "logging.hpp"
+#include <stack>
+#include <utility>
+#include <functional>
+#include <algorithm>
 
+using namespace std::placeholders;
+using ConvertorFuncType = std::function<void(Value *&)>;
+using CompFuncType = std::function<Value *(Value *left, Value *right)>;
+using AddFuncType = std::function<Value *(Value *left, Value *right)>;
+using MulFuncType = std::function<Value *(Value *left, Value *right)>;
+
+#define MOD builder->get_module()
+
+#define GET_INT32 Type::get_int32_type(MOD)
+#define GET_FLOAT Type::get_float_type(MOD)
+#define GET_VOID Type::get_void_type(MOD)
+#define GET_BOOL Type::get_int1_type(MOD)
+#define CONST_INT(num) \
+    (ConstantInt::get(num, MOD))
+#define CONST_FP(num) \
+    (ConstantFP::get(num, MOD))
+
+#define GET_CONST(astNum) \
+    ((astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val))
+
+std::map<Type *, int> typeOrderRank;
+std::map<std::pair<Type *, enum RelOp>, CompFuncType> compFuncTable;
+std::map<std::pair<Type *, enum AddOp>, AddFuncType> addFuncTable;
+std::map<std::pair<Type *, enum MulOp>, MulFuncType> mulFuncTable;
+std::map<std::pair<Type *, Type *>, ConvertorFuncType> compulsiveTypeConvertTable;
+
+Function *lastEnteredFun = nullptr;
+bool enteredFun = true;
+
+/**
+     * @brief  set true if the last parsed statement is a 'terminateStmt'
+     * Refer to report for the definition of 'terminateStmt'
+     */
+bool terminateStmt = false;
+std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
+std::list<Argument *>::iterator curArg;
+
+// Use stack to evaluate expressions
+std::stack<Value *> cal_stack;
+
+size_t label_name_cnt = 0;
+Value *getArrOrPtrAddr(IRBuilder *builder, Value *var, Value *index)
+{
+    Value *obj_addr;
+    if (var->get_type()->get_pointer_element_type()->is_array_type()) // is array
+        obj_addr = builder->create_gep(var, {CONST_INT(0), index});
+    else // is pointer
+    {
+        var = builder->create_load(var);
+        obj_addr = builder->create_gep(var, {index});
+    }
+    return obj_addr;
+}
+
+/**
+ * @brief Convert `enum CminusType` to `Type *`
+ * @arg CminusType: a `enum CminusType` value
+ * @arg res: a `Type *` value. The converted value will be assigned to it.
+ * 
+ */
+Type *CminusTypeConvertor(IRBuilder *builder, enum CminusType c)
+{
+    switch (c)
+    {
+    case TYPE_INT:
+        return GET_INT32;
+        break;
+    case TYPE_FLOAT:
+        return GET_FLOAT;
+        break;
+    case TYPE_VOID:
+        return GET_VOID;
+        break;
+    default:
+        break;
+    }
+}
+
+BasicBlock *newBasicBlock(IRBuilder *builder)
+{
+    return BasicBlock::create(MOD, std::to_string(label_name_cnt++), lastEnteredFun);
+}
+
+void compulsiveTypeConvert(Value *&origin, Type *target)
+{
+    if (origin->get_type() != target)
+        compulsiveTypeConvertTable[{origin->get_type(), target}](origin);
+}
+
+Type *augmentTypeConvert(Value *&left, Value *&right)
+{
+    auto resType = std::max(left->get_type(), right->get_type(), [&](Type *l, Type *r)
+                            { return typeOrderRank[l] < typeOrderRank[r]; });
+    compulsiveTypeConvert(left, resType);
+    compulsiveTypeConvert(right, resType);
+    return resType;
+}
+
+Type *augmentTypeConvert(Value *&left, Value *&right, Type *min)
+{
+    auto resType = std::max({left->get_type(), right->get_type(), min}, [&](Type *l, Type *r)
+                            { return typeOrderRank[l] < typeOrderRank[r]; });
+    compulsiveTypeConvert(left, resType);
+    compulsiveTypeConvert(right, resType);
+    return resType;
+}
 /*
  * use CMinusfBuilder::Scope to construct scopes
  * scope.enter: enter a new scope
@@ -12,6 +122,73 @@
 void CminusfBuilder::visit(ASTProgram &node)
 {
     LOG(INFO) << "Enter program";
+    // Init
+    compulsiveTypeConvertTable = {{{GET_INT32, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_icmp_ne(origin, ConstantInt::get(0, MOD)); })},
+                                  {{GET_FLOAT, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_fcmp_ne(origin, ConstantFP::get(0, MOD)); })},
+                                  {{GET_BOOL, GET_INT32}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_zext(origin, GET_INT32); })},
+                                  {{GET_FLOAT, GET_INT32}, ConvertorFuncType([&](Value *&origin)
+                                                                             { origin = builder->create_fptosi(origin, GET_INT32); })},
+                                  {{GET_BOOL, GET_FLOAT}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_sitofp(builder->create_zext(origin, GET_INT32), GET_FLOAT); })},
+                                  {{GET_INT32, GET_FLOAT}, ConvertorFuncType([&](Value *&origin)
+                                                                             { origin = builder->create_sitofp(origin, GET_FLOAT); })}};
+    typeOrderRank = {{GET_BOOL, 0},
+                     {GET_INT32, 1},
+                     {GET_FLOAT, 2}};
+    compFuncTable = {
+        {{GET_INT32, OP_LT}, [&](Value *left, Value *right)
+         { return builder->create_icmp_lt(left, right); }},
+        {{GET_INT32, OP_LE},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_le(left, right); }},
+        {{GET_INT32, OP_EQ},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_eq(left, right); }},
+        {{GET_INT32, OP_NEQ},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_ne(left, right); }},
+        {{GET_INT32, OP_GT},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_gt(left, right); }},
+        {{GET_INT32, OP_GE},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_ge(left, right); }},
+        {{GET_FLOAT, OP_LT}, [&](Value *left, Value *right)
+         { return builder->create_fcmp_lt(left, right); }},
+        {{GET_FLOAT, OP_LE},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_le(left, right); }},
+        {{GET_FLOAT, OP_EQ},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_eq(left, right); }},
+        {{GET_FLOAT, OP_NEQ},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_ne(left, right); }},
+        {{GET_FLOAT, OP_GT},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_gt(left, right); }},
+        {{GET_FLOAT, OP_GE},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_ge(left, right); }}};
+    addFuncTable = {{{GET_INT32, OP_PLUS}, [&](Value *left, Value *right)
+                     { return builder->create_iadd(left, right); }},
+                    {{GET_INT32, OP_MINUS}, [&](Value *left, Value *right)
+                     { return builder->create_isub(left, right); }},
+                    {{GET_FLOAT, OP_PLUS}, [&](Value *left, Value *right)
+                     { return builder->create_fadd(left, right); }},
+                    {{GET_FLOAT, OP_MINUS}, [&](Value *left, Value *right)
+                     { return builder->create_fsub(left, right); }}};
+    mulFuncTable = {{{GET_INT32, OP_MUL}, [&](Value *left, Value *right)
+                     { return builder->create_imul(left, right); }},
+                    {{GET_INT32, OP_DIV}, [&](Value *left, Value *right)
+                     { return builder->create_isdiv(left, right); }},
+                    {{GET_FLOAT, OP_MUL}, [&](Value *left, Value *right)
+                     { return builder->create_fmul(left, right); }},
+                    {{GET_FLOAT, OP_DIV}, [&](Value *left, Value *right)
+                     { return builder->create_fdiv(left, right); }}};
     for (auto &&declaration : node.declarations)
     {
         declaration->accept(*this);
@@ -29,7 +206,7 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
     LOG(INFO) << "Enter var decl " << node.id;
     Type *baseType, *finalType;
-    baseType = CminusTypeConvertor(node.type);
+    baseType = CminusTypeConvertor(builder, node.type);
     if (node.num) // is an array
     {
         LOG(INFO) << "is array";
@@ -65,10 +242,10 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
                 ty = Type::get_float_ptr_type(MOD);
         }
         else
-            ty = CminusTypeConvertor(param->type);
+            ty = CminusTypeConvertor(builder, param->type);
         Args.push_back(ty);
     }
-    Type *returnType = CminusTypeConvertor(node.type);
+    Type *returnType = CminusTypeConvertor(builder, node.type);
     auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
     scope.push(node.id, func);
     lastEnteredFun = func;
@@ -80,7 +257,7 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
     if (!terminateStmt)
     {
         LOG_INFO << "No terminate stmt";
-        if(lastEnteredFun->get_return_type()!=GET_VOID)
+        if (lastEnteredFun->get_return_type() != GET_VOID)
             LOG_ERROR << "Non void function without return statement is forbidden";
         else
             builder->create_void_ret();
@@ -95,9 +272,9 @@ void CminusfBuilder::visit(ASTParam &node)
     // TODO Refomat
     Type *ty;
     if (node.isarray)
-        ty = PointerType::get(CminusTypeConvertor(node.type));
+        ty = PointerType::get(CminusTypeConvertor(builder, node.type));
     else
-        ty = CminusTypeConvertor(node.type);
+        ty = CminusTypeConvertor(builder, node.type);
     auto alloca = builder->create_alloca(ty);
     scope.push(node.id, alloca);
     builder->create_store(*curArg++, alloca);
@@ -134,9 +311,9 @@ void CminusfBuilder::visit(ASTExpressionStmt &node)
 
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
-    auto exitBB = newBasicBlock();
-    auto trueBB = newBasicBlock();
-    auto falseBB = node.else_statement ? newBasicBlock() : exitBB;
+    auto exitBB = newBasicBlock(builder);
+    auto trueBB = newBasicBlock(builder);
+    auto falseBB = node.else_statement ? newBasicBlock(builder) : exitBB;
     node.expression->accept(*this);
     auto cond_res = cal_stack.top();
     cal_stack.pop();
@@ -164,9 +341,9 @@ void CminusfBuilder::visit(ASTSelectionStmt &node)
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
-    auto condBB = newBasicBlock();
-    auto loopBodyBB = newBasicBlock();
-    auto exitBB = newBasicBlock();
+    auto condBB = newBasicBlock(builder);
+    auto loopBodyBB = newBasicBlock(builder);
+    auto exitBB = newBasicBlock(builder);
     builder->create_br(condBB);
     builder->set_insert_point(condBB);
     node.expression->accept(*this);
@@ -213,8 +390,8 @@ void CminusfBuilder::visit(ASTVar &node)
 
         // Examine wether the index is negative
         auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
-        auto negBB = newBasicBlock();
-        auto posBB = newBasicBlock();
+        auto negBB = newBasicBlock(builder);
+        auto posBB = newBasicBlock(builder);
         builder->create_cond_br(isIdxNeg, negBB, posBB);
         builder->set_insert_point(negBB);
         auto negExcept = scope.find("neg_idx_except");
@@ -222,7 +399,7 @@ void CminusfBuilder::visit(ASTVar &node)
         builder->create_br(posBB);
         builder->set_insert_point(posBB);
 
-        obj_addr = getArrOrPtrAddr(var, index);
+        obj_addr = getArrOrPtrAddr(builder, var, index);
 
         cal_stack.pop();
         cal_stack.push(builder->create_load(obj_addr));
@@ -252,7 +429,7 @@ void CminusfBuilder::visit(ASTAssignExpression &node)
         node.var->expression->accept(*this);
         auto index = cal_stack.top();
         cal_stack.pop();
-        obj_addr = getArrOrPtrAddr(var, index);
+        obj_addr = getArrOrPtrAddr(builder, var, index);
     }
     else
         obj_addr = var;
