@@ -324,7 +324,6 @@ private:
     std::list<Argument *>::iterator curArg;
     // Use stack to evaluate expressions
     std::stack<Value *> cal_stack;
-    std::stack<BasicBlock *> bb_stack;
 
     size_t label_name_cnt = 0;
 };
