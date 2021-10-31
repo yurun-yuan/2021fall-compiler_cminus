@@ -319,9 +319,15 @@ private:
     std::unique_ptr<Module> module;
     Function *lastEnteredFun = nullptr;
     bool enteredFun = true;
+
+    /**
+     * @brief  set true if the last parsed statement is a 'terminateStmt'
+     * Refer to report for the definition of 'terminateStmt'
+     */
     bool terminateStmt = false;
     std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
     std::list<Argument *>::iterator curArg;
+
     // Use stack to evaluate expressions
     std::stack<Value *> cal_stack;
 
