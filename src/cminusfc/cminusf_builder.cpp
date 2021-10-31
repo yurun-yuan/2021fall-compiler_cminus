@@ -230,7 +230,6 @@ void CminusfBuilder::visit(ASTAssignExpression &node)
     // TODO Can be extracted as a function
     // ========================================
     auto var = scope.find(node.var->id);
-    // auto varType = var->get_type()->get_pointer_element_type();
     Value *obj_addr;
     if (node.var->expression) // is an array
     {
@@ -238,7 +237,6 @@ void CminusfBuilder::visit(ASTAssignExpression &node)
         auto index = cal_stack.top();
         cal_stack.pop();
         obj_addr = getArrOrPtrAddr(var, index);
-        // varType = varType->get_array_element_type();
     }
     else
         obj_addr = var;
