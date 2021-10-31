@@ -9,9 +9,8 @@
 #include "ast.hpp"
 #include <map>
 
-
-
-class Scope {
+class Scope
+{
 public:
     // enter a new scope
     void enter()
@@ -35,7 +34,7 @@ public:
     // return false if this name already exits
     bool push(std::string name, Value *val)
     {
-        auto result = inner.back().insert({name, val});
+        auto result = inner[inner.size() - 1].insert({name, val});
         return result.second;
     }
 
@@ -49,6 +48,7 @@ public:
                 return iter->second;
             }
         }
+
         return nullptr;
     }
 
@@ -106,8 +106,7 @@ public:
         scope.push("neg_idx_except", neg_idx_except_fun);
     }
 
-    std::unique_ptr<Module>
-    getModule()
+    std::unique_ptr<Module> getModule()
     {
         return std::move(module);
     }
@@ -128,16 +127,9 @@ private:
     virtual void visit(ASTAdditiveExpression &) override final;
     virtual void visit(ASTVar &) override final;
     virtual void visit(ASTTerm &) override final;
-    virtual void visit(ASTCall &) override final;    
+    virtual void visit(ASTCall &) override final;
 
     IRBuilder *builder;
-
-    /**
-     * @brief The types in scope can be
-     * AllocaInst
-     * GlobalVariable
-     * Function
-     */
     Scope scope;
     std::unique_ptr<Module> module;
 };
