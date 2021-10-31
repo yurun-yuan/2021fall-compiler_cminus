@@ -77,6 +77,15 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
     builder->set_insert_point(bb);
     params = &node.params;
     node.compound_stmt->accept(*this);
+    if (!terminateStmt)
+    {
+        LOG_INFO << "No terminate stmt";
+        if(lastEnteredFun->get_return_type()!=GET_VOID)
+            LOG_ERROR << "Non void function without return statement is forbidden";
+        else
+            builder->create_void_ret();
+    }
+    terminateStmt = false;
 
     LOG(INFO) << "Exit func decl" << node.id;
 }
@@ -110,15 +119,9 @@ void CminusfBuilder::visit(ASTCompoundStmt &node)
         varDecl->accept(*this);
     for (auto &&stmt : node.statement_list)
     {
-        if (isCtrlStmt(stmt.get()))
-        {
-            auto CtrlStmtExit = newBasicBlock();
-            bb_stack.push(CtrlStmtExit);
-            stmt->accept(*this);
-            builder->set_insert_point(CtrlStmtExit);
-        }
-        else
-            stmt->accept(*this);
+        stmt->accept(*this);
+        if (terminateStmt)
+            break;
     }
     scope.exit();
 }
@@ -131,8 +134,7 @@ void CminusfBuilder::visit(ASTExpressionStmt &node)
 
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
-    auto exitBB = bb_stack.top();
-    bb_stack.pop();
+    auto exitBB = newBasicBlock();
     auto trueBB = newBasicBlock();
     auto falseBB = node.else_statement ? newBasicBlock() : exitBB;
     node.expression->accept(*this);
@@ -142,21 +144,29 @@ void CminusfBuilder::visit(ASTSelectionStmt &node)
     builder->create_cond_br(cond_res, trueBB, falseBB);
     builder->set_insert_point(trueBB);
     node.if_statement->accept(*this);
-    builder->create_br(exitBB);
+    auto if_stmt_terminate = terminateStmt;
+    if (!terminateStmt)
+        builder->create_br(exitBB);
+    terminateStmt = false;
     if (node.else_statement)
     {
         builder->set_insert_point(falseBB);
         node.else_statement->accept(*this);
-        builder->create_br(exitBB);
+        if (!terminateStmt)
+            builder->create_br(exitBB);
+        terminateStmt = terminateStmt && if_stmt_terminate;
     }
+    if (!terminateStmt)
+        builder->set_insert_point(exitBB);
+    else
+        lastEnteredFun->remove(exitBB);
 }
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
-    auto exitBB = bb_stack.top();
-    bb_stack.pop();
     auto condBB = newBasicBlock();
     auto loopBodyBB = newBasicBlock();
+    auto exitBB = newBasicBlock();
     builder->create_br(condBB);
     builder->set_insert_point(condBB);
     node.expression->accept(*this);
@@ -166,7 +176,12 @@ void CminusfBuilder::visit(ASTIterationStmt &node)
     builder->create_cond_br(cond_res, loopBodyBB, exitBB);
     builder->set_insert_point(loopBodyBB);
     node.statement->accept(*this);
-    builder->create_br(condBB);
+    if (terminateStmt)
+        terminateStmt = false;
+    else
+        builder->create_br(condBB);
+
+    builder->set_insert_point(exitBB);
 }
 
 void CminusfBuilder::visit(ASTReturnStmt &node)
@@ -181,6 +196,7 @@ void CminusfBuilder::visit(ASTReturnStmt &node)
     }
     else
         builder->create_void_ret();
+    terminateStmt = true;
 }
 
 void CminusfBuilder::visit(ASTVar &node)
