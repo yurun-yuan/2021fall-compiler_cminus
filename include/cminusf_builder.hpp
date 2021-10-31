@@ -25,6 +25,13 @@ using MulFuncType = std::function<Value *(Value *left, Value *right)>;
 #define GET_FLOAT Type::get_float_type(MOD)
 #define GET_VOID Type::get_void_type(MOD)
 #define GET_BOOL Type::get_int1_type(MOD)
+#define CONST_INT(num) \
+    (ConstantInt::get(num, MOD))
+#define CONST_FP(num) \
+    (ConstantFP::get(num, MOD))
+
+#define GET_CONST(astNum) \
+    ((astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val))
 
 class Scope
 {
@@ -283,6 +290,18 @@ private:
         return resType;
     }
 
+    Value* getArrOrPtrAddr(Value* var, Value* index){
+        Value *obj_addr;
+        if (var->get_type()->get_pointer_element_type()->is_array_type()) // is array
+            obj_addr = builder->create_gep(var, {CONST_INT(0), index});
+        else // is pointer
+        {
+            var = builder->create_load(var);
+            obj_addr = builder->create_gep(var, {index});
+        }
+        return obj_addr;
+    }
+
     std::map<Type *, int> typeOrderRank;
     std::map<std::pair<Type *, enum RelOp>, CompFuncType> compFuncTable;
     std::map<std::pair<Type *, enum AddOp>, AddFuncType> addFuncTable;
@@ -300,6 +319,7 @@ private:
     std::unique_ptr<Module> module;
     Function *lastEnteredFun = nullptr;
     bool enteredFun = true;
+    bool terminateStmt = false;
     std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
     std::list<Argument *>::iterator curArg;
     // Use stack to evaluate expressions

@@ -1,14 +1,6 @@
 #include "cminusf_builder.hpp"
 #include "logging.hpp"
 
-#define CONST_INT(num) \
-    (ConstantInt::get(num, MOD))
-#define CONST_FP(num) \
-    (ConstantFP::get(num, MOD))
-
-#define GET_CONST(astNum) \
-    ((astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val))
-
 /*
  * use CMinusfBuilder::Scope to construct scopes
  * scope.enter: enter a new scope
@@ -214,13 +206,8 @@ void CminusfBuilder::visit(ASTVar &node)
         builder->create_br(posBB);
         builder->set_insert_point(posBB);
 
-        if (var->get_type()->is_array_type())
-            obj_addr = builder->create_gep(var, {CONST_INT(0), index});
-        else if (var->get_type()->is_pointer_type())
-        {
-            var = builder->create_load(var);
-            obj_addr = builder->create_gep(var, {index});
-        }
+        obj_addr = getArrOrPtrAddr(var, index);
+
         cal_stack.pop();
         cal_stack.push(builder->create_load(obj_addr));
     }
@@ -243,21 +230,22 @@ void CminusfBuilder::visit(ASTAssignExpression &node)
     // TODO Can be extracted as a function
     // ========================================
     auto var = scope.find(node.var->id);
-    auto varType = var->get_type()->get_pointer_element_type();
+    // auto varType = var->get_type()->get_pointer_element_type();
     Value *obj_addr;
     if (node.var->expression) // is an array
     {
         node.var->expression->accept(*this);
-        obj_addr = builder->create_gep(var, {CONST_INT(0), cal_stack.top()});
+        auto index = cal_stack.top();
         cal_stack.pop();
-        varType = varType->get_array_element_type();
+        obj_addr = getArrOrPtrAddr(var, index);
+        // varType = varType->get_array_element_type();
     }
     else
         obj_addr = var;
     //=========================================
     auto val = cal_stack.top();
     cal_stack.pop();
-    compulsiveTypeConvert(val, varType);
+    compulsiveTypeConvert(val, obj_addr->get_type()->get_pointer_element_type());
     builder->create_store(val, obj_addr);
     cal_stack.push(builder->create_load(obj_addr));
 }
