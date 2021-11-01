@@ -35,10 +35,10 @@ Function *lastEnteredFun = nullptr;
 bool enteredFun = true;
 
 /**
-     * @brief  set true if the last parsed statement is a 'terminateStmt'
-     * Refer to report for the definition of 'terminateStmt'
-     */
-bool terminateStmt = false;
+ * @brief  set true if the last parsed statement is a 'terminalStmt'
+ * Refer to report for the definition of 'terminalStmt'
+ */
+bool isTerminalStmt = false;
 std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
 std::list<Argument *>::iterator curArg;
 
@@ -254,7 +254,7 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
     builder->set_insert_point(bb);
     params = &node.params;
     node.compound_stmt->accept(*this);
-    if (!terminateStmt)
+    if (!isTerminalStmt)
     {
         LOG_INFO << "No terminate stmt";
         if (lastEnteredFun->get_return_type() != GET_VOID)
@@ -262,7 +262,7 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
         else
             builder->create_void_ret();
     }
-    terminateStmt = false;
+    isTerminalStmt = false;
 
     LOG(INFO) << "Exit func decl" << node.id;
 }
@@ -297,7 +297,7 @@ void CminusfBuilder::visit(ASTCompoundStmt &node)
     for (auto &&stmt : node.statement_list)
     {
         stmt->accept(*this);
-        if (terminateStmt)
+        if (isTerminalStmt)
             break;
     }
     scope.exit();
@@ -321,19 +321,19 @@ void CminusfBuilder::visit(ASTSelectionStmt &node)
     builder->create_cond_br(cond_res, trueBB, falseBB);
     builder->set_insert_point(trueBB);
     node.if_statement->accept(*this);
-    auto if_stmt_terminate = terminateStmt;
-    if (!terminateStmt)
+    auto if_stmt_terminate = isTerminalStmt;
+    if (!isTerminalStmt)
         builder->create_br(exitBB);
-    terminateStmt = false;
+    isTerminalStmt = false;
     if (node.else_statement)
     {
         builder->set_insert_point(falseBB);
         node.else_statement->accept(*this);
-        if (!terminateStmt)
+        if (!isTerminalStmt)
             builder->create_br(exitBB);
-        terminateStmt = terminateStmt && if_stmt_terminate;
+        isTerminalStmt = isTerminalStmt && if_stmt_terminate;
     }
-    if (!terminateStmt)
+    if (!isTerminalStmt)
         builder->set_insert_point(exitBB);
     else
         lastEnteredFun->remove(exitBB);
@@ -353,8 +353,8 @@ void CminusfBuilder::visit(ASTIterationStmt &node)
     builder->create_cond_br(cond_res, loopBodyBB, exitBB);
     builder->set_insert_point(loopBodyBB);
     node.statement->accept(*this);
-    if (terminateStmt)
-        terminateStmt = false;
+    if (isTerminalStmt)
+        isTerminalStmt = false;
     else
         builder->create_br(condBB);
 
@@ -373,7 +373,7 @@ void CminusfBuilder::visit(ASTReturnStmt &node)
     }
     else
         builder->create_void_ret();
-    terminateStmt = true;
+    isTerminalStmt = true;
 }
 
 void CminusfBuilder::visit(ASTVar &node)

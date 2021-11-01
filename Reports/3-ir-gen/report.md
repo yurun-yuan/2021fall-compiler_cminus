@@ -33,18 +33,18 @@
    一个基本块可以以`ret`或`br`结束。而对一个statement而言，可以如下定义它是*terminate statement*:
    $$
    \begin{align}
-   \textit{terminateStmt}&\rightarrow \textbf{return}\ \mathit{expr}\\
-   &\rightarrow\textbf{compound statement}\ \mathit{\{\cdots;\ terminateStmt;\ \cdots\}}\\
-   &\rightarrow\mathbf{if}\ \mathit{terminateStmt}\ \mathbf{else}\ \mathit{terminateStmt}
+   \textit{terminalStmt}&\rightarrow \textbf{return}\ \mathit{expr}\\
+   &\rightarrow\textbf{compound statement}\ \mathit{\{\cdots;\ terminalStmt;\ \cdots\}}\\
+   &\rightarrow\mathbf{if}\ \mathit{terminalStmt}\ \mathbf{else}\ \mathit{terminalStmt}
    \end{align}
    $$
-   当在`compound-statement`中遇到`terminateStmt`是，后续语句可直接跳过。
+   当在`compound-statement`中遇到`terminalStmt`是，后续语句可直接跳过。
    
    此外，这也是为了处理有时无需插入`br`的控制语句。例如
    
    ```c
    if(expr)
-       terminateStmt
+       terminalStmt
    ```
    
    则`if-statement`结尾除无需再添加`br`指令。
@@ -53,12 +53,12 @@
    
    ```c
    if(expr)
-       terminateStmt
+       terminalStmt
    else
-       terminateStmt
+       terminalStmt
    ```
    
-   此`if`语句本身也是`terminateStmt`。则`if-statement`, `else-statement`结尾处均无需加`br`，且整个`if-else`语句后也不应加入BB插入点。
+   此`if`语句本身也是`terminalStmt`。则`if-statement`, `else-statement`结尾处均无需加`br`，且整个`if-else`语句后也不应加入BB插入点。
    
 10. `void-function` without `return` statement
 
