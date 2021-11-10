@@ -189,10 +189,9 @@ void CminusfBuilder::visit(ASTProgram &node)
                      { return builder->create_fmul(left, right); }},
                     {{GET_FLOAT, OP_DIV}, [&](Value *left, Value *right)
                      { return builder->create_fdiv(left, right); }}};
-    for (auto &&declaration : node.declarations)
-    {
-        declaration->accept(*this);
-    }
+
+    std::for_each(node.declarations.begin(), node.declarations.end(), [&](auto &ptr)
+                  { ptr->accept(*this); });
 }
 
 void CminusfBuilder::visit(ASTNum &node)
