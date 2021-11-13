@@ -44,7 +44,7 @@
     * 3. bool
     * 
     * The conversion can only be performed from a lower-rank type
-    * to a higher-rank type. 
+    * to a high-rank type. 
     * 
     * @param left 
     * @param right 
