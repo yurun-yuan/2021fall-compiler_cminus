@@ -111,13 +111,6 @@ Type *augmentTypeConvert(Value *&left, Value *&right, Type *min)
     compulsiveTypeConvert(right, resType);
     return resType;
 }
-/*
- * use CMinusfBuilder::Scope to construct scopes
- * scope.enter: enter a new scope
- * scope.exit: exit current scope
- * scope.push: add a new binding to current scope
- * scope.find: find and return the value bound to the name
- */
 
 void CminusfBuilder::visit(ASTProgram &node)
 {
@@ -225,25 +218,22 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
     LOG(INFO) << "Exit var decl" << node.id;
 }
 
+auto get_valid_param_ty(IRBuilder *builder, ASTParam &param)
+{
+    Type *ty;
+    if (param.isarray)
+        ty = PointerType::get(CminusTypeConvertor(builder, param.type));
+    else
+        ty = CminusTypeConvertor(builder, param.type);
+    return ty;
+}
+
 void CminusfBuilder::visit(ASTFunDeclaration &node)
 {
     LOG(INFO) << "Enter fun decl " << node.id << "";
     std::vector<Type *> Args{};
     for (auto &&param : node.params)
-    {
-        // TODO reformat
-        Type *ty;
-        if (param->isarray)
-        {
-            if (param->type == TYPE_INT)
-                ty = Type::get_int32_ptr_type(MOD);
-            else
-                ty = Type::get_float_ptr_type(MOD);
-        }
-        else
-            ty = CminusTypeConvertor(builder, param->type);
-        Args.push_back(ty);
-    }
+        Args.push_back(get_valid_param_ty(builder, *param));
     Type *returnType = CminusTypeConvertor(builder, node.type);
     auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
     scope.push(node.id, func);
@@ -268,13 +258,7 @@ void CminusfBuilder::visit(ASTFunDeclaration &node)
 
 void CminusfBuilder::visit(ASTParam &node)
 {
-    // TODO Refomat
-    Type *ty;
-    if (node.isarray)
-        ty = PointerType::get(CminusTypeConvertor(builder, node.type));
-    else
-        ty = CminusTypeConvertor(builder, node.type);
-    auto alloca = builder->create_alloca(ty);
+    auto alloca = builder->create_alloca(get_valid_param_ty(builder, node));
     scope.push(node.id, alloca);
     builder->create_store(*curArg++, alloca);
 }
@@ -375,32 +359,33 @@ void CminusfBuilder::visit(ASTReturnStmt &node)
     isTerminalStmt = true;
 }
 
+Value *get_arr_elem_addr(CminusfBuilder*cbuilder, IRBuilder *builder, Scope &scope, Value*arr, ASTExpression &offset)
+{
+    offset.accept(*cbuilder);
+    auto index = cal_stack.top();
+    cal_stack.pop();
+    compulsiveTypeConvert(index, GET_INT32);
+
+    // Examine wether the index is negative
+    auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
+    auto negBB = newBasicBlock(builder);
+    auto posBB = newBasicBlock(builder);
+    builder->create_cond_br(isIdxNeg, negBB, posBB);
+    builder->set_insert_point(negBB);
+    auto negExcept = scope.find("neg_idx_except");
+    builder->create_call(negExcept, {});
+    builder->create_br(posBB);
+    builder->set_insert_point(posBB);
+
+    return getArrOrPtrAddr(builder, arr, index);
+}
+
 void CminusfBuilder::visit(ASTVar &node)
 {
-    // TODO Can be extracted as a function
-    // ========================================
     auto var = scope.find(node.id);
-    Value *obj_addr;
     if (node.expression) // is an element of an array
     {
-        node.expression->accept(*this);
-        auto index = cal_stack.top();
-        compulsiveTypeConvert(index, GET_INT32);
-
-        // Examine wether the index is negative
-        auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
-        auto negBB = newBasicBlock(builder);
-        auto posBB = newBasicBlock(builder);
-        builder->create_cond_br(isIdxNeg, negBB, posBB);
-        builder->set_insert_point(negBB);
-        auto negExcept = scope.find("neg_idx_except");
-        builder->create_call(negExcept, {});
-        builder->create_br(posBB);
-        builder->set_insert_point(posBB);
-
-        obj_addr = getArrOrPtrAddr(builder, var, index);
-
-        cal_stack.pop();
+        Value *obj_addr = get_arr_elem_addr(this, builder, scope, var, *(node.expression));
         cal_stack.push(builder->create_load(obj_addr));
     }
     else if (var->get_type()->get_pointer_element_type()->is_array_type()) // is of array type
@@ -410,29 +395,20 @@ void CminusfBuilder::visit(ASTVar &node)
     }
     else
     {
-        obj_addr = var;
+        Value *obj_addr = var;
         cal_stack.push(builder->create_load(obj_addr));
     }
-    //=========================================
 }
 
 void CminusfBuilder::visit(ASTAssignExpression &node)
 {
     node.expression->accept(*this);
-    // TODO Can be extracted as a function
-    // ========================================
     auto var = scope.find(node.var->id);
     Value *obj_addr;
     if (node.var->expression) // is an array
-    {
-        node.var->expression->accept(*this);
-        auto index = cal_stack.top();
-        cal_stack.pop();
-        obj_addr = getArrOrPtrAddr(builder, var, index);
-    }
+        obj_addr = get_arr_elem_addr(this, builder, scope, var, *(node.var->expression));
     else
         obj_addr = var;
-    //=========================================
     auto val = cal_stack.top();
     cal_stack.pop();
     compulsiveTypeConvert(val, obj_addr->get_type()->get_pointer_element_type());
