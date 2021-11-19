@@ -31,7 +31,7 @@ using MulFuncType = std::function<Value *(Value *left, Value *right)>;
 #define CONST_FP(num) \
     ConstantFP::get((float)num, module.get())
 #define CONST_ZERO(type) \
-    ConstantZero::get(var_type, module.get())
+    ConstantZero::get(type, module.get())
 
 #define MOD builder->get_module()
 
