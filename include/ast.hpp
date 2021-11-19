@@ -115,14 +115,14 @@ struct ASTNum: ASTFactor {
 
 struct ASTVarDeclaration: ASTDeclaration {
     virtual void accept(ASTVisitor &) override final;
-    CminusType type;
-    std::shared_ptr<ASTNum> num;
+    CminusType type; //? Whats the point of this variable? Class ASTDeclaration already has `type`
+    std::shared_ptr<ASTNum> num; // If the var is an array, `num` is the size of this array
 };
 
 struct ASTFunDeclaration: ASTDeclaration {
     virtual void accept(ASTVisitor &) override final;
-    std::vector<std::shared_ptr<ASTParam>> params;
-    std::shared_ptr<ASTCompoundStmt> compound_stmt;
+    std::vector<std::shared_ptr<ASTParam>> params;  // Arguments
+    std::shared_ptr<ASTCompoundStmt> compound_stmt; // Function body
 };
 
 struct ASTParam: ASTNode {
