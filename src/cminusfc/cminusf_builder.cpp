@@ -30,6 +30,7 @@ using MulFuncType = std::function<Value *(Value *left, Value *right)>;
 // use these macros to get constant value
 #define CONST_FP(num) \
     ConstantFP::get((float)num, module.get())
+<<<<<<< HEAD
 #define CONST_ZERO(type) \
     ConstantZero::get(type, module.get())
 
@@ -93,6 +94,10 @@ bool enteredFun = true;
 bool isTerminalStmt = false;
 std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
 std::list<Argument *>::iterator curArg;
+=======
+#define CONST_INT(num) \
+    ConstantInt::get(num, module.get())
+>>>>>>> 2d558145f1542d1138c61cb60baa2ebfc95dd124
 
 // Use stack to evaluate expressions
 std::stack<Value *> cal_stack;
