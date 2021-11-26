@@ -8,8 +8,77 @@
 
 ## 思考题
 ### LoopSearch
-1. ...
-2. ...
+1. `std::unordered_set<BasicBlock *>`
+
+2. 在函数`find_loop_base`中查找，具体解释如下：
+
+   ```cpp
+   CFGNodePtr LoopSearch::find_loop_base(
+       CFGNodePtrSet *set,
+       CFGNodePtrSet &reserved)//输入一个强连通分量set和一个已经记录的base的集合reserved
+   {
+   
+       CFGNodePtr base = nullptr;
+       for (auto n : *set)//遍历set中所有的节点
+       {
+           for (auto prev : n->prevs)//遍历节点中的前驱
+           {
+               if (set->find(prev) == set->end())//如果有一个前驱不在set中，将其设为base
+               {
+                   base = n;
+               }
+           }
+       }
+       if (base != nullptr)
+           return base;
+       //这个是在删除记录过的base节点后的补救方案，如果再上一个循环中没有找到base，则在这里记录中的base节点的在此set中的后继，等价于前驱在set外的节点。
+       for (auto res : reserved)
+       {
+           for (auto succ : res->succs)
+           {
+               if (set->find(succ) != set->end())
+               {
+                   base = succ;
+               }
+           }
+       }
+   
+       return base;
+   }
+   ```
+
+3. 在第一次遍历连通分量时，将每一个base结点在CFG中删除，这样就破坏了外层循环，进行第二次遍历前找到的强连通分量就是内部循环，以此往复，可以找到所有的内部循环。
+
+4. 通过以下函数找到最内层循环：
+
+   ```cpp
+   BBset_t *get_inner_loop(BasicBlock* bb){
+       if(bb2base.find(bb) == bb2base.end())
+           return nullptr;
+       return base2loop[bb2base[bb]];
+   }
+   ```
+
+   其中用到了两个数据`bb2base`和`base2loop`，即先通过basicblock找到base节点，在找到base节点对应的loop。
+
+   其中`bb2base`在每次循环中含有当前基本块时都会用新数据覆盖当前数据。
+
+   ```cpp
+   for (auto bb : *bb_set)
+   {
+       if (bb2base.find(bb) == bb2base.end())
+           bb2base.insert({bb, base->bb});
+       else
+           bb2base[bb] = base->bb;
+   }
+   ```
+
+   而`base2loop`则是每个循环新建记录：
+
+   ```cpp
+   base2loop.insert({base->bb, bb_set});
+   ```
+
 ### Mem2reg
 1. 请**简述**概念：支配性、严格支配性、直接支配性、支配边界。
 
