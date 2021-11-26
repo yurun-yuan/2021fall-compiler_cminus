@@ -69,35 +69,7 @@
 
 1. 请**简述**概念：支配性、严格支配性、直接支配性、支配边界。
 
-   * 支配性
-
-     若每一条从`entry`到节点`n`的路径都经过`d`，则称`d`支配`n`，记为`d dom n`. 
-
-   * 严格支配性
-
-     在*支配性*的定义中，对任意节点`n`有`n dom n`。*`d`严格支配`n`*指`d dom n`且`d != n`. 
-
-   * 直接支配性
-
-     若`d`满足：
-
-     1. `d dom n`
-     2. $\forall e$满足$e \text{ dom }n$，有$e \text{ dom }d$.
-
-     则称`d`直接支配`n`. 
-
-   * 支配边界
-
-     `n`的支配边界是满足如下性质的节点`x`的集合：
-
-     1. `x`的某个前继被`n`支配，且
-     2. `n`并不严格支配`x`.
-
 2. `phi`节点是SSA的关键特征，请**简述**`phi`节点的概念，以及引入`phi`节点的理由。
-
-   $ \Phi$节点是具有$ \Phi$函数的节点。其引入是为解决：在SSA中一些寄存器的赋值与流图中到达此节点的路径有关。
-
-   由于单赋值的特性，不同基本块中对相同变量的赋值会被翻译为对不同寄存器的赋值，这对汇合点(joint)中的变量引用造成困难，即无法判断应使用的寄存器值。$\Phi$函数允许根据进入此基本块的入边判断应使用的寄存器。
 
 3. 下面给出的`cminus`代码显然不是SSA的，后面是使用lab3的功能将其生成的LLVM IR（**未加任何Pass**），说明对一个变量的多次赋值变成了什么形式？
 
@@ -140,7 +112,7 @@
    }
    ```
 
-   对单个变量的多次赋值变为对不同寄存器的赋值及将寄存器值store。
+   
 
 4. 对下面给出的`cminus`程序，使用lab3的功能，分别关闭/开启`Mem2Reg`生成LLVM IR。对比生成的两段LLVM IR，开启`Mem2Reg`后，每条`load`, `store`指令发生了变化吗？变化或者没变化的原因是什么？请分类解释。
 
@@ -265,70 +237,7 @@
    }
    ```
 
-   除对`globVar`的`load`以外，`load`、`store`被全部删除。
-
-   * `load`被删除的原因
-
-     在获取变量值时使用`var_val_stack[l_val].back()`得到相应寄存器，从而无需`load`. 
-
-   * `store`被删除的原因
-
-     对变量赋值时改为了对寄存器赋值，且记录了存有变量最新值的寄存器，因此无需`store`. 
-
-   * `globVar`的`load`被保留的原因
-
-     `globVar`是全局变量，需跨函数共享，仅用寄存器记录其值是不够的。
-
-   删除`store`和`load`指令的代码对应`Mem2Reg.cpp`中第103行和第116行：
-
-   ```c++
-   if ( instr->is_load() )
-   {
-       // step 4: replace load with the top of stack[l_val]
-       auto l_val = static_cast<LoadInst *>(instr)->get_lval();
-       if (!IS_GLOBAL_VARIABLE(l_val) && !IS_GEP_INSTR(l_val))
-       {
-           if ( var_val_stack.find(l_val)!=var_val_stack.end())
-           {
-               instr->replace_all_use_with(var_val_stack[l_val].back());
-               wait_delete.push_back(instr);                // Line 103
-           }
-       }
-   }
-   if (instr->is_store())
-   {
-       // step 5: push r_val of store instr as lval's lastest value define
-       auto l_val = static_cast<StoreInst *>(instr)->get_lval();
-       auto r_val = static_cast<StoreInst *>(instr)->get_rval();
-       if (!IS_GLOBAL_VARIABLE(l_val) && !IS_GEP_INSTR(l_val))
-       {
-           var_val_stack[l_val].push_back(r_val);
-           wait_delete.push_back(instr);                   // Line 116
-       }
-   } 
-   ```
+   
 
 5. 指出放置phi节点的代码，并解释是如何使用支配树的信息的。需要给出代码中的成员变量或成员函数名称。
-
-   完整生成$ \Phi$指令分为两步：
-
-   1. `Mem2Reg::generate_phi`中插入$ \Phi$指令
-
-      `Mem2Reg.cpp: line 66`: 
-
-      ```cpp
-      auto phi = PhiInst::create_phi(var->get_type()->get_pointer_element_type(), bb_dominance_frontier_bb);
-      ```
-
-   2. `Mem2Reg::re_name`中在$ \Phi$指令中加入(寄存器-前继)节点的配对。
-
-      `Mem2Reg.cpp: line 132`:
-
-      ```cpp
-      static_cast<PhiInst *>(instr)->add_phi_pair_operand(var_val_stack[l_val].back(), bb);
-      ```
-
-   在寻找$ \Phi$节点的过程中(在`Mem2Reg::generate_phi`函数里)，使用`Dominators::get_dominance_frontier`查询支配边界，并在支配边界的基本块内插入$ \Phi$指令。
-
-   在`Mem2Reg::re_name`中，利用`Dominators::get_dom_tree_succ_blocks`查找支配树中后继，从而实现了对支配树的DFS。
 
