@@ -27,58 +27,48 @@ void advance(int diff)
 
 %}
 
-%%
-    /* to do for students */
-    /* two cases for you, pass_node will send flex's token to bison */
+%x COMMENT
 
-int { advance(strlen(yytext)); pass_node(yytext);  return INT;} 
-float { advance(strlen(yytext)); pass_node(yytext);  return FLOAT;} 
-if { advance(strlen(yytext)); pass_node(yytext);  return IF;}
-else { advance(strlen(yytext)); pass_node(yytext);  return ELSE;} 
-return { advance(strlen(yytext)); pass_node(yytext);  return RETURN;} 
-void { advance(strlen(yytext)); pass_node(yytext);  return VOID;} 
-while { advance(strlen(yytext)); pass_node(yytext);  return WHILE;}
-(\r\n|\r|\n) { lines++; pos_start = pos_end = 0;}
-[ \t] { advance(1);} 
-\+ { advance(1); pass_node(yytext);  return ADD;} 
-\- { advance(1); pass_node(yytext);  return MINUS;}
-\* { advance(1); pass_node(yytext);  return MUL;}
-\/ { advance(1); pass_node(yytext);  return DIV;}
-\< { advance(1); pass_node(yytext);  return LESS;} 
-\<= { advance(2); pass_node(yytext);  return LESSEQ;} 
-> { advance(1); pass_node(yytext);  return GREATER;}
->= { advance(2); pass_node(yytext);  return GREATEREQ;} 
-== { advance(2); pass_node(yytext);  return EQ;} 
-!= { advance(2); pass_node(yytext);  return NEQ;} 
-= { advance(1); pass_node(yytext);  return ASSIGN;} 
-; { advance(1); pass_node(yytext);  return SEMICOLON;} 
-, { advance(1); pass_node(yytext);  return COMMA;} 
-\( { advance(1); pass_node(yytext);  return LPAREN;} 
-\) { advance(1); pass_node(yytext);  return RPAREN;} 
-\[ {  advance(1);  pass_node(yytext);    return LBRACKET; } 
-\] { advance(1); pass_node(yytext);  return RBRACKET;} 
-\{ { advance(1); pass_node(yytext);  return LBRACE;}
-"}" { advance(1); pass_node(yytext);  return RBRACE;} 
-"/*"((\*)*[^\*\/]|(\/))*(\*)*"*/" {
-     int last_lf_pos=0;
-     int lf_num=0;
-     for(int i = 0; i < strlen(yytext); i++){
-          if(yytext[i] == '\n'){
-               lf_num ++;
-               last_lf_pos = i;
-          }
-     }
-     if(lf_num){
-          lines += lf_num;
-          pos_start = pos_end;
-          pos_end = strlen(yytext) - last_lf_pos;
-     }
-     else
-          advance(strlen(yytext));
-}
-[a-zA-Z]+ { advance(strlen(yytext)); pass_node(yytext);  return ID;} 
-[0-9]+ { advance(strlen(yytext)); pass_node(yytext);  return INTEGER;} 
-([0-9]+\.|[0-9]*\.[0-9]+) { advance(strlen(yytext)); pass_node(yytext); return FLOATPOINT;} 
-. { advance(1);  return ERROR;}
+%%
+
+\+ 	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return ADD;}
+\-	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return SUB;}
+\*	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return MUL;}
+\/	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return DIV;}
+\<	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return LT;}
+\<=	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return LTE;}
+\>	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return GT;}
+\>=	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return GTE;}
+==	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return EQ;}
+!=	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return NEQ;}
+=	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return ASSIN;}
+;	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return SEMICOLON;}
+,	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return COMMA;}
+\(	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return LPARENTHESE;}
+\)	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return RPARENTHESE;}
+\[	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return LBRACKET;}
+\]	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return RBRACKET;}
+\{	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return LBRACE;}
+\}	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return RBRACE;}
+else	{pos_start = pos_end; pos_end += 4; pass_node(yytext); return ELSE;}
+if	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return IF;}
+int	{pos_start = pos_end; pos_end += 3; pass_node(yytext); return INT;}
+float   {pos_start = pos_end; pos_end += 5; pass_node(yytext); return FLOAT;}
+return 	{pos_start = pos_end; pos_end += 6; pass_node(yytext); return RETURN;}
+void 	{pos_start = pos_end; pos_end += 4; pass_node(yytext); return VOID;}
+while 	{pos_start = pos_end; pos_end += 5; pass_node(yytext); return WHILE;}
+[a-zA-Z]+	{pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return IDENTIFIER;}
+[0-9]+	{pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return INTEGER;}
+[0-9]+\.[0-9]*|[0-9]*\.[0-9]+ { pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return FLOATPOINT; }
+
+\n 	{lines++; pos_start = 1; pos_end = 1;}
+[ \t] 	{pos_start = pos_end; pos_end += 1;}
+
+"/*"             { pos_start = pos_end; pos_end += 2; BEGIN(COMMENT); }
+<COMMENT>"*/"    { pos_start = pos_end; pos_end += 2; BEGIN(INITIAL); }
+<COMMENT>.  { pos_start = pos_end; pos_start += 1; }
+<COMMENT>\n { pos_start = 1; pos_end = 1; lines++; }
+
+. { pos_start = pos_end; pos_end++; return ERROR; }
 
 %%
