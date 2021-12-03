@@ -1,26 +1,18 @@
-%option noyywrap 
+%option noyywrap
 %{
 /*****************声明和选项设置  begin*****************/
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "syntax_tree.h"
 #include "syntax_analyzer.h"
 
-int lines = 0;
+int lines;
 int pos_start;
 int pos_end;
 
-void pass_node(char *text)
-{
+void pass_node(char *text){
      yylval.node = new_syntax_tree_node(text);
-}
-
-void advance(int diff)
-{
-     pos_start = pos_end;
-     pos_end += diff;
 }
 
 /*****************声明和选项设置  end*****************/

@@ -10,11 +10,11 @@
 extern int yylex();
 extern int yyparse();
 extern int yyrestart();
-extern FILE *yyin;
+extern FILE * yyin;
 
 // external variables from lexical_analyzer module
 extern int lines;
-extern char *yytext;
+extern char * yytext;
 extern int pos_end;
 extern int pos_start;
 
@@ -26,8 +26,6 @@ void yyerror(const char *s);
 
 // Helper functions written for you with love
 syntax_tree_node *node(const char *node_name, int children_num, ...);
-
-struct _syntax_tree_node;
 %}
 
 /* TODO: Complete this definition. */
@@ -74,37 +72,6 @@ struct _syntax_tree_node;
 
 /* compulsory starting symbol */
 %start program
-%type<node> declaration-list 
-%type<node> declaration
-%type<node> var-declaration
-%type<node> type-specifier
-%type<node> fun-declaration
-%type<node> params
-%type<node> param-list
-%type<node> param
-%type<node> compound-stmt
-%type<node> local-declarations
-%type<node> statement-list
-%type<node> statement
-%type<node> expression-stmt
-%type<node> selection-stmt
-%type<node> iteration-stmt
-%type<node> return-stmt
-%type<node> expression
-%type<node> var
-%type<node> simple-expression
-%type<node> relop
-%type<node> additive-expression
-%type<node> addop
-%type<node> term
-%type<node> mulop
-%type<node> factor
-%type<node> integer
-%type<node> float
-%type<node> call
-%type<node> args
-%type<node> arg-list
-%type<node> error
 
 %%
 /* TODO: Your rules here. */
@@ -240,11 +207,11 @@ arg-list 	: 	arg-list COMMA expression {$$ = node( "arg-list", 3, $1, $2, $3);}
 %%
 
 /// The error reporting function.
-void yyerror(const char *s)
+void yyerror(const char * s)
 {
     // TO STUDENTS: This is just an example.
     // You can customize it as you like.
-    
+    fprintf(stderr, "error at line %d column %d: %s\n", lines, pos_start, s);
 }
 
 /// Parse input from file `input_path`, and prints the parsing results
@@ -253,16 +220,12 @@ void yyerror(const char *s)
 /// This function initializes essential states before running yyparse().
 syntax_tree *parse(const char *input_path)
 {
-    if (input_path != NULL)
-    {
-        if (!(yyin = fopen(input_path, "r")))
-        {
-            
+    if (input_path != NULL) {
+        if (!(yyin = fopen(input_path, "r"))) {
+            fprintf(stderr, "[ERR] Open input file %s failed.\n", input_path);
             exit(1);
         }
-    }
-    else
-    {
+    } else {
         yyin = stdin;
     }
 
@@ -280,17 +243,13 @@ syntax_tree_node *node(const char *name, int children_num, ...)
 {
     syntax_tree_node *p = new_syntax_tree_node(name);
     syntax_tree_node *child;
-    if (children_num == 0)
-    {
+    if (children_num == 0) {
         child = new_syntax_tree_node("epsilon");
         syntax_tree_add_child(p, child);
-    }
-    else
-    {
+    } else {
         va_list ap;
         va_start(ap, children_num);
-        for (int i = 0; i < children_num; ++i)
-        {
+        for (int i = 0; i < children_num; ++i) {
             child = va_arg(ap, syntax_tree_node *);
             syntax_tree_add_child(p, child);
         }
