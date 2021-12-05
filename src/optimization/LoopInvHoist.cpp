@@ -89,7 +89,7 @@ bool LoopInvHoist::can_delete(Instruction *instr, BBset_t *loop, std::vector<Ins
     { return to_const(lhs) && to_const(rhs); };
 
     // std::cout << "DEBUG:" << instr->get_instr_op_name() << std::endl;
-    if (instr->isBinary())
+    if (instr->isBinary() || instr->is_cmp() || instr->is_fcmp())
     {
         auto lhs = instr->get_operand(0);
         auto rhs = instr->get_operand(1);
@@ -130,6 +130,28 @@ bool LoopInvHoist::can_delete(Instruction *instr, BBset_t *loop, std::vector<Ins
 
         return (can_l && can_r);
     } // if is_Binary
+    else if(instr->is_fp2si() || instr->is_si2fp() || instr->is_zext())
+    {
+        auto lhs = instr->get_operand(0);
+        bool can_l = false;
+        if (to_const(lhs))
+            can_l = true;
+        if (to_instruction(lhs))
+        {
+            auto lparent = to_instruction(lhs)->get_parent();
+            if (loop->find(lparent) == loop->end())
+                can_l = true;
+            else
+            {
+                for (auto del : wait_delete)
+                {
+                    if (del == to_instruction(lhs))
+                        can_l = true;
+                }
+            }
+        }
+        return can_l;
+    }
     else
         return false;
 }
