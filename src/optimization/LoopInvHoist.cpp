@@ -63,12 +63,23 @@ void LoopInvHoist::dfs(BasicBlock *node, BBset_t *loop, LoopSearch loop_searcher
     if (!wait_delete.empty())
     {
         // printf("DEBUG:can delete!\n");
-        for (auto instr = wait_delete.end() - 1; instr >= wait_delete.begin(); instr--)
+
+        // 将指令直接插入目标块的beginning是错误的
+        // 应该将指令插入目标块的branch指令之前
+        auto branch = target->get_instructions().back();
+        target->get_instructions().pop_back();
+        for(auto instr : wait_delete)
         {
-            target->add_instr_begin(*instr);
-            node->delete_instr(*instr);
+            target->add_instruction(instr);
+            node->delete_instr(instr);
         }
+        target->add_instruction(branch);
         wait_delete.clear();
+        // for (auto instr = wait_delete.end() - 1; instr >= wait_delete.begin(); instr--)
+        // {
+        //     target->add_instr_begin(*instr);
+        //     node->delete_instr(*instr);
+        // }
     }
 
     // 接着深度优先遍历node的后继
@@ -94,6 +105,7 @@ bool LoopInvHoist::can_delete(Instruction *instr, BBset_t *loop, std::vector<Ins
         auto lhs = instr->get_operand(0);
         auto rhs = instr->get_operand(1);
         bool can_l = false, can_r = false;
+        // 分别判断左值和右值是否满足可删除的条件
         if (to_const(lhs))
             can_l = true;
         if (to_instruction(lhs))
