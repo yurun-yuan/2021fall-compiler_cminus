@@ -68,7 +68,7 @@ void LoopInvHoist::dfs(BasicBlock *node, BBset_t *loop, LoopSearch loop_searcher
         // 应该将指令插入目标块的branch指令之前
         auto branch = target->get_instructions().back();
         target->get_instructions().pop_back();
-        for(auto instr : wait_delete)
+        for (auto instr : wait_delete)
         {
             target->add_instruction(instr);
             node->delete_instr(instr);
@@ -100,69 +100,31 @@ bool LoopInvHoist::can_delete(Instruction *instr, BBset_t *loop, std::vector<Ins
     { return to_const(lhs) && to_const(rhs); };
 
     // std::cout << "DEBUG:" << instr->get_instr_op_name() << std::endl;
-    if (instr->isBinary() || instr->is_cmp() || instr->is_fcmp())
+    if (instr->isBinary() || instr->is_cmp() || instr->is_fcmp() || instr->is_fp2si() || instr->is_si2fp() || instr->is_zext())
     {
-        auto lhs = instr->get_operand(0);
-        auto rhs = instr->get_operand(1);
-        bool can_l = false, can_r = false;
-        // 分别判断左值和右值是否满足可删除的条件
-        if (to_const(lhs))
-            can_l = true;
-        if (to_instruction(lhs))
+        bool can = false;
+        for (auto op : instr->get_operands())
         {
-            auto lparent = to_instruction(lhs)->get_parent();
-            if (loop->find(lparent) == loop->end())
-                can_l = true;
-            else
+            if(to_const(op))
+                can = true;
+            if(to_instruction(op))
             {
-                for (auto del : wait_delete)
+                auto parent = to_instruction(op)->get_parent();
+                if(loop->find(parent) == loop->end())
+                    can = true;
+                else
                 {
-                    if (del == to_instruction(lhs))
-                        can_l = true;
+                    for (auto del : wait_delete)
+                    {
+                        if (del == to_instruction(op))
+                            can = true;
+                    }
                 }
             }
+            if(!can)
+                return false;
         }
-
-        if (to_const(rhs))
-            can_r = true;
-        if (to_instruction(rhs))
-        {
-            auto rparent = to_instruction(rhs)->get_parent();
-            if (loop->find(rparent) == loop->end())
-                can_r = true;
-            else
-            {
-                for (auto del : wait_delete)
-                {
-                    if (del == to_instruction(lhs))
-                        can_r = true;
-                }
-            }
-        }
-
-        return (can_l && can_r);
-    } // if is_Binary
-    else if(instr->is_fp2si() || instr->is_si2fp() || instr->is_zext())
-    {
-        auto lhs = instr->get_operand(0);
-        bool can_l = false;
-        if (to_const(lhs))
-            can_l = true;
-        if (to_instruction(lhs))
-        {
-            auto lparent = to_instruction(lhs)->get_parent();
-            if (loop->find(lparent) == loop->end())
-                can_l = true;
-            else
-            {
-                for (auto del : wait_delete)
-                {
-                    if (del == to_instruction(lhs))
-                        can_l = true;
-                }
-            }
-        }
-        return can_l;
+        return can;
     }
     else
         return false;
