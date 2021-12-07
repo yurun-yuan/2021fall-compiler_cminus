@@ -235,7 +235,267 @@
     实现思路：
     相应代码：
     优化前后的IR对比（举一个例子）并辅以简单说明：
-    
+
+    1. 实现思路：
+        1. 循环不变式外提需要将与循环无关的计算提前在循环之前执行，遍历每个循环的基本块，找到循环不变式
+        2. 遍历循环的顺序应该为：从内层循环开始向外层循环遍历，这样能保证循环不变式提到所能及的最外层循环
+        3. 识别循环不变式的逻辑：指令的操作元满足下列任一条件
+           - 操作元是常数
+           - 操作元类型为`Instruction *`，且其`get_parent()`不在循环中
+           - 操作元类型为`Instruction *`，且该指令也是循环不变式
+        4. 遍历循环中基本块的顺序应该为：深度优先遍历
+           - ![loopinvhoist_dfs.drawio](report-phase2.assets/loopinvhoist_dfs.drawio.svg)
+           - 比如，以上循环中`%a=1+1`和`%b=%a+1`都是循环不变式，如果先遍历基本块$\text{B}_3$，那么`%b=%a+1`就不会被识别为循环不变式
+        5. 循环不变式外提的目标基本块应该为：循环`base`的不属于该循环的前继
+        
+    2. 相应代码：
+
+        1. 遍历所有循环顺序为：从内层循环开始向外层循环遍历。实现为，从包含基本块数目最少的循环开始遍历
+
+            ```c++
+            // 获取函数的所有循环
+            std::unordered_set<BBset_t *> loops = loop_searcher.get_loops_in_func(func);
+            
+            // 将循环按循环中块的个数排序，这样可以做到从最内存循环遍历所有循环
+            std::vector<BBset_t *> loops_sorted{loops.begin(), loops.end()};
+            std::sort(loops_sorted.begin(), loops_sorted.end(),
+                [&](BBset_t *lhs, BBset_t *rhs)
+                { return lhs->size() < rhs->size(); });
+            ```
+
+        2. 识别循环不变式需要判断指令的每个操作元是否满足可外提的条件
+
+            ```c++
+            auto to_instruction = [&](Value *v)
+                { return dynamic_cast<Instruction *>(v); };
+            auto to_const = [&](Value *v)
+                { return dynamic_cast<ConstantInt *>(v) || dynamic_cast<ConstantFP *>(v); };
+            
+            bool can = false;
+            
+            // 遍历指令的每个操作元
+            // 判断该操作元是否满足上述的三条条件中的任意一条
+            for (auto op : instr->get_operands())
+            {
+                if(to_const(op))
+                    can = true;
+                if(to_instruction(op))
+                {
+                    auto parent = to_instruction(op)->get_parent();
+                    if(loop->find(parent) == loop->end())
+                        can = true;
+                    else
+                    {
+                        for (auto del : wait_delete)
+                        {
+                            if (del == to_instruction(op))
+                                can = true;
+                        }
+                    }
+                }
+                if(!can)
+                    return false;
+            }
+            return can;
+            ```
+
+        3. 深度优先遍历循环中的所有基本块
+
+            ```c++
+            // 接着深度优先遍历node的后继
+            for (auto succ = node->get_succ_basic_blocks().begin();
+                 succ != node->get_succ_basic_blocks().end(); succ++)
+            {
+                    if ((visited.find(*succ) == visited.end()) && (loop->find(*succ) != loop->end()))
+                        dfs(*succ, loop, loop_searcher);
+            }
+            ```
+
+        4. 找到循环不变式外提的目标快
+
+            ```c++
+            // 找到循环外提的目标块：循环base的不属于该循环的前继
+            auto base = loop_searcher.get_loop_base(loop);
+            BasicBlock *target;
+            for (auto prev : base->get_pre_basic_blocks())
+                if (loop->find(prev) == loop->end())
+                    target = prev;
+            ```
+
+    3. 优化前后的IR对比（举一个例子）并辅以简单说明：
+
+        1. 对于样例`testcase-2`：
+
+            ```c++
+            void main(void){
+                int i;
+                int j;
+                int a;
+                int ret;
+            
+                i = 0;
+                a = 2;
+            
+                while(i<10000000)
+                {
+                    j = 0;
+            
+                    while(j<2)
+                    {
+                        ret = (a*a*a*a*a*a*a*a*a*a)/a/a/a/a/a/a/a/a/a/a;
+                        j=j+1;
+                    }
+                    i=i+1;
+                }
+            	output(ret);
+                return ;
+            }
+            ```
+
+        2. 赋值语句`ret = (a*a*a*a*a*a*a*a*a*a)/a/a/a/a/a/a/a/a/a/a;` 对于两层循环来说都是循环不变式，按我们实现的逻辑：应该先将其外提出最内层循环，然后外提出外层循环
+
+        3. 优化前：该赋值语句在最内层循环
+
+            ```c
+            ; ModuleID = 'cminus'
+            source_filename = "../tests/4-ir-opt/testcases/LoopInvHoist/testcase-2.cminus"
+            
+            declare i32 @input()
+            
+            declare void @output(i32)
+            
+            declare void @outputFloat(float)
+            
+            declare void @neg_idx_except()
+            
+            define void @main() {
+            label_entry:
+              br label %label4
+            label4:                                                ; preds = %label_entry, %label59
+              %op62 = phi i32 [ %op65, %label59 ], [ undef, %label_entry ]
+              %op63 = phi i32 [ 0, %label_entry ], [ %op61, %label59 ]
+              %op64 = phi i32 [ %op66, %label59 ], [ undef, %label_entry ]
+              %op6 = icmp slt i32 %op63, 10000000
+              %op7 = zext i1 %op6 to i32
+              %op8 = icmp ne i32 %op7, 0
+              br i1 %op8, label %label9, label %label10
+            label9:                                                ; preds = %label4
+              br label %label12
+            label10:                                                ; preds = %label4
+              call void @output(i32 %op62)
+              ret void
+            label12:                                                ; preds = %label9, %label17
+              %op65 = phi i32 [ %op62, %label9 ], [ %op56, %label17 ]
+              %op66 = phi i32 [ 0, %label9 ], [ %op58, %label17 ]
+              %op14 = icmp slt i32 %op66, 2
+              %op15 = zext i1 %op14 to i32
+              %op16 = icmp ne i32 %op15, 0
+              br i1 %op16, label %label17, label %label59
+            label17:                                                ; preds = %label12
+            
+            ============================== 这是优化前赋值语句的开始位置 ===========================
+              %op20 = mul i32 2, 2
+              %op22 = mul i32 %op20, 2
+              %op24 = mul i32 %op22, 2
+              %op26 = mul i32 %op24, 2
+              %op28 = mul i32 %op26, 2
+              %op30 = mul i32 %op28, 2
+              %op32 = mul i32 %op30, 2
+              %op34 = mul i32 %op32, 2
+              %op36 = mul i32 %op34, 2
+              %op38 = sdiv i32 %op36, 2
+              %op40 = sdiv i32 %op38, 2
+              %op42 = sdiv i32 %op40, 2
+              %op44 = sdiv i32 %op42, 2
+              %op46 = sdiv i32 %op44, 2
+              %op48 = sdiv i32 %op46, 2
+              %op50 = sdiv i32 %op48, 2
+              %op52 = sdiv i32 %op50, 2
+              %op54 = sdiv i32 %op52, 2
+              %op56 = sdiv i32 %op54, 2
+              %op58 = add i32 %op66, 1
+            ============================== 这是优化前赋值语句的结束位置 ===========================
+                
+              br label %label12
+            label59:                                                ; preds = %label12
+              %op61 = add i32 %op63, 1
+              br label %label4
+            }
+            ```
+
+            
+
+        4. 优化后：该赋值语句在循环外
+
+            ```c
+            ; ModuleID = 'cminus'
+            source_filename = "../tests/4-ir-opt/testcases/LoopInvHoist/testcase-2.cminus"
+            
+            declare i32 @input()
+            
+            declare void @output(i32)
+            
+            declare void @outputFloat(float)
+            
+            declare void @neg_idx_except()
+            
+            define void @main() {
+            label_entry:
+                
+            ============================== 这是优化后赋值语句的开始位置 ===========================
+              %op20 = mul i32 2, 2
+              %op22 = mul i32 %op20, 2
+              %op24 = mul i32 %op22, 2
+              %op26 = mul i32 %op24, 2
+              %op28 = mul i32 %op26, 2
+              %op30 = mul i32 %op28, 2
+              %op32 = mul i32 %op30, 2
+              %op34 = mul i32 %op32, 2
+              %op36 = mul i32 %op34, 2
+              %op38 = sdiv i32 %op36, 2
+              %op40 = sdiv i32 %op38, 2
+              %op42 = sdiv i32 %op40, 2
+              %op44 = sdiv i32 %op42, 2
+              %op46 = sdiv i32 %op44, 2
+              %op48 = sdiv i32 %op46, 2
+              %op50 = sdiv i32 %op48, 2
+              %op52 = sdiv i32 %op50, 2
+              %op54 = sdiv i32 %op52, 2
+              %op56 = sdiv i32 %op54, 2
+            ============================== 这是优化后赋值语句的结束位置 ===========================
+                
+              br label %label4
+            label4:                                                ; preds = %label_entry, %label59
+              %op62 = phi i32 [ %op65, %label59 ], [ undef, %label_entry ]
+              %op63 = phi i32 [ 0, %label_entry ], [ %op61, %label59 ]
+              %op64 = phi i32 [ %op66, %label59 ], [ undef, %label_entry ]
+              %op6 = icmp slt i32 %op63, 10000000
+              %op7 = zext i1 %op6 to i32
+              %op8 = icmp ne i32 %op7, 0
+              br i1 %op8, label %label9, label %label10
+            label9:                                                ; preds = %label4
+              br label %label12
+            label10:                                                ; preds = %label4
+              call void @output(i32 %op62)
+              ret void
+            label12:                                                ; preds = %label9, %label17
+              %op65 = phi i32 [ %op62, %label9 ], [ %op56, %label17 ]
+              %op66 = phi i32 [ 0, %label9 ], [ %op58, %label17 ]
+              %op14 = icmp slt i32 %op66, 2
+              %op15 = zext i1 %op14 to i32
+              %op16 = icmp ne i32 %op15, 0
+              br i1 %op16, label %label17, label %label59
+            label17:                                                ; preds = %label12
+              %op58 = add i32 %op66, 1
+              br label %label12
+            label59:                                                ; preds = %label12
+              %op61 = add i32 %op63, 1
+              br label %label4
+            }
+            ```
+
+            
+
 * 活跃变量分析
     实现思路：
     相应的代码：
