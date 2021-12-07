@@ -4,37 +4,6 @@
 #include<algorithm>
 using namespace std;
 
-// set<Value*> Set_Union(const set<Value*> &src, const set<Value*> &b, bool &is_change)
-// {
-//     set<Value*> target;
-//     auto it_src = src.begin();
-//     auto it_b = src.begin();
-//     while(it_src != src.end() && it_b != b.end())
-//     {
-//         if(*it_src < *it_b)
-//         {
-//             target.insert(*(it_src++));
-//         }
-//         else if(*it_b < it_src)
-//         {
-//             target.insert(*(it_b++));
-//             is_change = true;
-//         }
-//         else
-//         {
-//             target.insert(*(it_src++));
-//             it_b++;
-//         }
-//     }//while
-    
-//     if(it_b != b.end())
-//     {
-//         is_change = true;
-//         while(it_b != )
-//     }
-    
-// }
-
 void SetDifference(const set<Value*> &a, const set<Value*> &b, set<Value*> &target)
 {
     auto it_a = a.begin();
