@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <iostream>
+#include <string>
+#include <cassert>
 
 class Module;
 class IntegerType;
@@ -14,14 +16,16 @@ class FloatType;
 class Type
 {
 public:
-    enum TypeID {
-        VoidTyID,         // Void
-        LabelTyID,        // Labels, e.g., BasicBlock
-        IntegerTyID,      // Integers, include 32 bits and 1 bit
-        FunctionTyID,     // Functions
-        ArrayTyID,        // Arrays
-        PointerTyID,      // Pointer
-        FloatTyID         // float
+    enum TypeID
+    {
+        VoidTyID,     // Void
+        LabelTyID,    // Labels, e.g., BasicBlock
+        IntegerTyID,  // Integers, include 32 bits and 1 bit
+        FunctionTyID, // Functions
+        ArrayTyID,    // Arrays
+        PointerTyID,  // Pointer
+        FloatTyID,    // float
+        StructTyID    // struct
     };
 
     explicit Type(TypeID tid, Module *m);
@@ -30,11 +34,11 @@ public:
     TypeID get_type_id() const { return tid_; }
 
     bool is_void_type() const { return get_type_id() == VoidTyID; }
-    
+
     bool is_label_type() const { return get_type_id() == LabelTyID; }
 
     bool is_integer_type() const { return get_type_id() == IntegerTyID; }
-        
+
     bool is_function_type() const { return get_type_id() == FunctionTyID; }
 
     bool is_array_type() const { return get_type_id() == ArrayTyID; }
@@ -68,28 +72,31 @@ public:
     Type *get_array_element_type();
 
     int get_size();
-    
+
     Module *get_module();
 
-    std::string print();
+    virtual std::string print();
 
 private:
     TypeID tid_;
     Module *m_;
 };
 
-class IntegerType : public Type {
+class IntegerType : public Type
+{
 public:
-    explicit IntegerType(unsigned num_bits ,Module *m);
+    explicit IntegerType(unsigned num_bits, Module *m);
 
-    static IntegerType *get(unsigned num_bits, Module *m );
+    static IntegerType *get(unsigned num_bits, Module *m);
 
     unsigned get_num_bits();
+
 private:
     unsigned num_bits_;
 };
 
-class FunctionType : public Type {
+class FunctionType : public Type
+{
 public:
     FunctionType(Type *result, std::vector<Type *> params);
 
@@ -97,7 +104,7 @@ public:
     static bool is_valid_argument_type(Type *ty);
 
     static FunctionType *get(Type *result,
-                            std::vector<Type*> params);
+                             std::vector<Type *> params);
 
     unsigned get_num_of_args() const;
 
@@ -105,12 +112,46 @@ public:
     std::vector<Type *>::iterator param_begin() { return args_.begin(); }
     std::vector<Type *>::iterator param_end() { return args_.end(); }
     Type *get_return_type() const;
+
 private:
     Type *result_;
     std::vector<Type *> args_;
 };
 
-class ArrayType : public Type {
+class StructType : public Type
+{
+public:
+    struct StructMember
+    {
+        Type *type;
+        std::string member_id;
+    };
+
+    StructType(std::string struct_id, std::vector<StructMember> members);
+
+    static StructType *get(std::string struct_id,
+                           std::vector<StructMember> members);
+    unsigned get_element_index(std::string member_id)
+    {
+        for (size_t i = 0; i < members.size(); i++)
+        {
+            if (members[i].member_id == member_id)
+                return i;
+        }
+        assert("Unrecognized member identifier");
+        return 0;
+    }
+    std::string print()override{
+        return "%struct." + struct_id;
+    }
+
+private:
+    std::string struct_id;
+    std::vector<StructMember> members;
+};
+
+class ArrayType : public Type
+{
 public:
     ArrayType(Type *contained, unsigned num_elements);
 
@@ -122,11 +163,12 @@ public:
     unsigned get_num_of_elements() const { return num_elements_; }
 
 private:
-    Type *contained_;   // The element type of the array.
-    unsigned num_elements_;  // Number of elements in the array.
+    Type *contained_;       // The element type of the array.
+    unsigned num_elements_; // Number of elements in the array.
 };
 
-class PointerType : public Type {
+class PointerType : public Type
+{
 public:
     PointerType(Type *contained);
     Type *get_element_type() const { return contained_; }
@@ -134,13 +176,15 @@ public:
     static PointerType *get(Type *contained);
 
 private:
-    Type *contained_;   // The element type of the ptr.
+    Type *contained_; // The element type of the ptr.
 };
 
-class FloatType : public Type {
+class FloatType : public Type
+{
 public:
-    FloatType (Module *m);
+    FloatType(Module *m);
     static FloatType *get(Module *m);
+
 private:
 };
 
