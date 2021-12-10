@@ -75,13 +75,7 @@
 
   <paragraph|Declarations>
 
-  <math|<tabular|<tformat|<table|<row|<cell|<text|var-declaration>>|<cell|\<rightarrow\>>|<cell|<text|type-specifier><wide*|<with|font-series|bold|ID>|\<bar\>><wide*|<with|font-series|bold|;>|\<bar\>>>>|<row|<cell|>|<cell|\|>|<cell|<text|type-specifier><wide*|<with|font-series|bold|ID>|\<bar\>>
-  <wide*|<with|font-series|bold|[>|\<bar\>>
-  <wide*|<with|font-series|bold|INTEGER>|\<bar\>>
-  <wide*|<with|font-series|bold|]>|\<bar\>>
-  <wide*|<with|font-series|bold|;>|\<bar\>>>>|<row|<cell|<text|type-specifier>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|int>|\<bar\>>
-  <around|\||<wide*|<with|font-series|bold|float>|\<bar\>>|\|>
-  <wide*|<with|font-series|bold|void>|\<bar\>>>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|<text|fun-declaration>>|<cell|\<rightarrow\>>|<cell|<text|type-specifier><wide*|<with|font-series|bold|ID>|\<bar\>>
+  <math|<tabular|<tformat|<table|<row|<cell|<text|var-declaration>>|<cell|\<rightarrow\>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|>>|<row|<cell|<text|type-specifier>>|<cell|>|<cell|>>|<row|<cell|<text|fun-declaration>>|<cell|\<rightarrow\>>|<cell|<text|type-specifier><wide*|<with|font-series|bold|ID>|\<bar\>>
   <wide*|<with|font-series|bold|(>|\<bar\>>
   <text|params><wide*|<with|font-series|bold|)>|\<bar\>><text|compound-stmt>>>|<row|<cell|<text|params>>|<cell|\<rightarrow\>>|<cell|<text|param-list>\|<wide*|<with|font-series|bold|void>|\<bar\>>>>|<row|<cell|<text|param-list>>|<cell|\<rightarrow\>>|<cell|<text|param-list><wide*|<with|font-series|bold|,>|\<bar\>><text|param>\|<text|param>>>|<row|<cell|<text|param>>|<cell|\<rightarrow\>>|<cell|<text|type-specifier><wide*|<with|font-series|bold|ID>|\<bar\>>\|<text|type-specifier><wide*|<with|font-series|bold|ID>|\<bar\>>
   <wide*|<with|font-series|bold|[>|\<bar\>>
@@ -105,17 +99,60 @@
 
   <paragraph|Expressions>
 
-  <math|<tabular|<tformat|<table|<row|<cell|<text|expression>>|<cell|\<rightarrow\>>|<cell|<text|var><wide*|<with|font-series|bold|=>|\<bar\>><text|expression>\|<text|simple-expression>>>|<row|<cell|<text|var>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|ID>|\<bar\>>\|<wide*|<with|font-series|bold|ID>|\<bar\>>
-  <wide*|<with|font-series|bold|[>|\<bar\>>
-  <text|expression><wide*|<with|font-series|bold|]>|\<bar\>>>>|<row|<cell|<text|simple-expression>>|<cell|\<rightarrow\>>|<cell|<text|additive-expression><text|relop><text|additive-expression>\|<text|additive-expression>>>|<row|<cell|<text|relop>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|\<less\>=>|\<bar\>>
-  <around|\||<wide*|<with|font-series|bold|\<less\>>|\<bar\>>|\|>
-  <wide*|<with|font-series|bold|\<gtr\>>|\<bar\>>
-  <around|\||<wide*|<with|font-series|bold|\<gtr\>=>|\<bar\>>|\|>
-  <wide*|<with|font-series|bold|==>|\<bar\>>\|<wide*|<with|font-series|bold|!=>|\<bar\>>>>|<row|<cell|<text|additive-expression>>|<cell|\<rightarrow\>>|<cell|<text|additive-expression><text|addop><text|term>\|<text|term>>>|<row|<cell|<text|addop>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|+>|\<bar\>>\|<wide*|<with|font-series|bold|->|\<bar\>>>>|<row|<cell|<text|term>>|<cell|\<rightarrow\>>|<cell|<text|term><text|mulop><text|factor>\|<text|factor>>>|<row|<cell|<text|mulop>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|>|\<bar\>>\|<wide*|<with|font-series|bold|/>|\<bar\>>>>|<row|<cell|<text|factor>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|(>|\<bar\>>
-  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>>
-  <around|\||<text|var>|\|> <text|call><around|\||<text|integer>|\|><text|float>>>|<row|<cell|<text|integer>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|INTEGER>|\<bar\>>>>|<row|<cell|<text|float>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|FLOATPOINT>|\<bar\>>>>|<row|<cell|<text|call>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|ID>|\<bar\>>
-  <wide*|<with|font-series|bold|(>|\<bar\>>
-  <text|args><wide*|<with|font-series|bold|)>|\<bar\>>>>|<row|<cell|<text|args>>|<cell|\<rightarrow\>>|<cell|<text|arg-list>\|<text|empty>>>|<row|<cell|<text|arg-list>>|<cell|\<rightarrow\>>|<cell|<text|arg-list><wide*|<with|font-series|bold|,>|\<bar\>><text|expression>\|<text|expression>>>>>>>
+  Supported operators:
+
+  Arithmetic, logical, relation, dereference, address-of
+
+  \;
+
+  Precedence:
+
+  <\enumerate>
+    <item>id, literal, (Expression)
+
+    Atom
+
+    <item>call, subscript, member access
+
+    Element
+
+    <item>Unary plus, unary minus, deref, address-of (Right to left)
+
+    Factor
+
+    <item>Mul, div
+
+    Mul-expr
+
+    <item>add, sub
+
+    Add-expr
+
+    <item>\<less\>,\<less\>=,\<gtr\>,\<gtr\>=
+
+    order-expr
+
+    <item>==,!=
+
+    eq-expr
+
+    <item>= (right to left)
+
+    Assignment
+  </enumerate>
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|integer>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|string>>|<row|<cell|>|<cell|>|<cell|<around*|(|expression|)>>>|<row|<cell|element>|<cell|\<rightarrow\>>|<cell|atom<around*|(|argList|)>>>|<row|<cell|>|<cell|>|<cell|atom<around*|[|expression|]>>>|<row|<cell|>|<cell|>|<cell|atom.id>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|factor>|<cell|\<rightarrow\>>|<cell|UnaryAddOp
+    element>>|<row|<cell|>|<cell|>|<cell|element>>|<row|<cell|>|<cell|>|<cell|\<ast\>element>>|<row|<cell|>|<cell|>|<cell|&element>>|<row|<cell|>|<cell|>|<cell|element>>|<row|<cell|mulExpr>|<cell|\<rightarrow\>>|<cell|factor
+    mulOp factor>>|<row|<cell|>|<cell|>|<cell|factor>>|<row|<cell|addExpr>|<cell|\<rightarrow\>>|<cell|mulExpr
+    addOp mulExpr>>|<row|<cell|>|<cell|>|<cell|mulExpr>>|<row|<cell|orderExpr>|<cell|\<rightarrow\>>|<cell|addExpr
+    orderOp addExpr>>|<row|<cell|>|<cell|>|<cell|addExpr>>|<row|<cell|assign>|<cell|\<rightarrow\>>|<cell|expr>>>>
+  </eqnarray*>
+
+  <\framed>
+    Warning: there is no mechanism to determine whether a value is a
+    <verbatim|l-value> or an <verbatim|r-value>.\ 
+  </framed>
 </body>
 
 <initial|<\collection>
@@ -125,6 +162,7 @@
   <\collection>
     <associate|auto-1|<tuple|1|?>>
     <associate|auto-10|<tuple|2.2.1.4|?>>
+    <associate|auto-11|<tuple|2.2.1.5|?>>
     <associate|auto-2|<tuple|2|?>>
     <associate|auto-3|<tuple|2.1|?>>
     <associate|auto-4|<tuple|2.1.1|?>>
@@ -146,6 +184,38 @@
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Workload>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-2><vspace|0.5fn>
+
+      <with|par-left|<quote|1tab>|2.1<space|2spc><with|font-family|<quote|tt>|language|<quote|verbatim>|LightIR>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-3>>
+
+      <with|par-left|<quote|2tab>|2.1.1<space|2spc><with|font-family|<quote|tt>|language|<quote|verbatim>|struct>
+      Support <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-4>>
+
+      <with|par-left|<quote|1tab>|2.2<space|2spc><with|font-family|<quote|tt>|language|<quote|verbatim>|cminusf>
+      Syntax <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-5>>
+
+      <with|par-left|<quote|2tab>|2.2.1<space|2spc>CFG
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-6>>
+
+      <with|par-left|<quote|4tab>|Program structure
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-7><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Declarations
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-8><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Statement
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-9><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Expressions
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-10><vspace|0.15fn>>
     </associate>
   </collection>
 </auxiliary>
