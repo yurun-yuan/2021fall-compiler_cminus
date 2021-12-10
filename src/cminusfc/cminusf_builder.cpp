@@ -1,181 +1,7 @@
 #include "cminusf_builder.hpp"
 
-/**
- * Preambles can be defined here, including `using` 
- * statements and `#include`.
- * 
- */
-
-#include "logging.hpp"
-#include <stack>
-#include <utility>
-#include <functional>
-#include <algorithm>
-
 using namespace std::placeholders;
-using ConvertorFuncType = std::function<void(Value *&)>;
-using CompFuncType = std::function<Value *(Value *left, Value *right)>;
-using AddFuncType = std::function<Value *(Value *left, Value *right)>;
-using MulFuncType = std::function<Value *(Value *left, Value *right)>;
-
-/**
- * Some infrastructures can be defined here. 
- * 
- * If you want to tell other members how to use them, 
- * write comments, or specify the usage in 
- * Reports/3-ir-gen/Group discussions.md part "自建基础设施文档"
- * 
- */
-
-// use these macros to get constant value
-#define CONST_FP(num) \
-    ConstantFP::get((float)num, module.get())
-#define CONST_ZERO(type) \
-    ConstantZero::get(type, module.get())
-
-#define MOD builder->get_module()
-
-// Macros for Type
-#define GET_INT32 Type::get_int32_type(MOD)
-#define GET_FLOAT Type::get_float_type(MOD)
-#define GET_VOID Type::get_void_type(MOD)
-#define GET_BOOL Type::get_int1_type(MOD)
-
-#define CONST_INT(num) \
-    (ConstantInt::get(num, MOD))
-#define CONST_FP(num) \
-    (ConstantFP::get(num, MOD))
-
-#define GET_CONST(astNum) \
-    ((astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val))
-
-/**
- * @brief Convert `enum CminusType` to `Type *`
- * @param builder just pass the builder in CminusfBuilder to it
- * @param CminusType a `enum CminusType` value
- * @return  a `Type *` value. 
- * 
- */
-Type *CminusTypeConvertor(IRBuilder *builder, enum CminusType c)
-{
-    switch (c)
-    {
-    case TYPE_INT:
-        return GET_INT32;
-        break;
-    case TYPE_FLOAT:
-        return GET_FLOAT;
-        break;
-    case TYPE_VOID:
-        return GET_VOID;
-        break;
-    default:
-        break;
-    }
-}
-
-#define INIT(Ty) ConstantZero::get((Ty), MOD)
-
-// See `group discussion.md` for more info
-std::map<Type *, int> typeOrderRank;
-std::map<std::pair<Type *, enum RelOp>, CompFuncType> compFuncTable;
-std::map<std::pair<Type *, enum AddOp>, AddFuncType> addFuncTable;
-std::map<std::pair<Type *, enum MulOp>, MulFuncType> mulFuncTable;
-std::map<std::pair<Type *, Type *>, ConvertorFuncType> compulsiveTypeConvertTable;
-
-Function *lastEnteredFun = nullptr;
-bool enteredFun = true;
-
-/**
- * @brief  set true if the last parsed statement is a 'terminalStmt'
- * Refer to report for the definition of 'terminalStmt'
- */
-bool isTerminalStmt = false;
-std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
-std::list<Argument *>::iterator curArg;
-
-// Use stack to evaluate expressions
-std::stack<Value *> cal_stack;
-
-size_t label_name_cnt = 0;
-Value *getArrOrPtrAddr(IRBuilder *builder, Value *var, Value *index)
-{
-    Value *obj_addr;
-    if (var->get_type()->get_pointer_element_type()->is_array_type()) // is array
-        obj_addr = builder->create_gep(var, {CONST_INT(0), index});
-    else // is pointer
-    {
-        var = builder->create_load(var);
-        obj_addr = builder->create_gep(var, {index});
-    }
-    return obj_addr;
-}
-
-/**
- * @brief Compulsively convert value `origin` to `target` type.
- * 
- * e.g. If `a` is of type `int` and has a non-zero value, 
- * `compulsiveTypeConvert(a, GET_BOOL)` will change `a` to 
- * a bool type with value true. 
- * 
- */
-void compulsiveTypeConvert(Value *&origin, Type *target)
-{
-    if (origin->get_type() != target)
-        compulsiveTypeConvertTable[{origin->get_type(), target}](origin);
-}
-
-/**
- * @brief Convert left/right to the same type
- * 
- * e.g. If left is of type bool, right is of type int, 
- * then left is converted to type int with value 1. 
- * 
- * The rank of types are as following: 
- * 1. float
- * 2. int
- * 3. bool
- * 
- * The conversion can only be performed from a lower-rank type
- * to a higher-rank type. 
- * 
- * @param left 
- * @param right 
- * @return Type* The type of left and right after conversion.
- */
-Type *augmentTypeConvert(Value *&left, Value *&right)
-{
-    auto resType = std::max(left->get_type(), right->get_type(), [&](Type *l, Type *r)
-                            { return typeOrderRank[l] < typeOrderRank[r]; });
-    compulsiveTypeConvert(left, resType);
-    compulsiveTypeConvert(right, resType);
-    return resType;
-}
-
-/**
- * @brief Same as `Type *augmentTypeConvert(Value *&left, Value *&right)`
- * with the exception that, after conversion, the rank of
- * the type of left&right cannot be lower than min.
- * 
- * e.g. if left and right are both of type bool, 
- * after running `compulsiveTypeConvert(left, right, GET_INT)`,
- * both of them are converted to int. 
- * @return Type* 
- */
-Type *augmentTypeConvert(Value *&left, Value *&right, Type *min)
-{
-    auto resType = std::max({left->get_type(), right->get_type(), min}, [&](Type *l, Type *r)
-                            { return typeOrderRank[l] < typeOrderRank[r]; });
-    compulsiveTypeConvert(left, resType);
-    compulsiveTypeConvert(right, resType);
-    return resType;
-}
-
-BasicBlock *newBasicBlock(IRBuilder *builder)
-{
-    return BasicBlock::create(MOD, std::to_string(label_name_cnt++), lastEnteredFun);
-}
-
+using namespace std;
 /**
  * Main task: write `visit` functions
  * 
@@ -270,7 +96,7 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
     LOG(INFO) << "Enter var decl " << node.id;
     Type *baseType, *finalType;
-    baseType = CminusTypeConvertor(builder, node.type);
+    baseType = CminusTypeConvertor(node.type);
     if (node.num) // is an array
     {
         LOG(INFO) << "is array";
@@ -290,23 +116,13 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
     LOG(INFO) << "Exit var decl" << node.id;
 }
 
-auto get_valid_param_ty(IRBuilder *builder, ASTParam &param)
-{
-    Type *ty;
-    if (param.isarray)
-        ty = PointerType::get(CminusTypeConvertor(builder, param.type));
-    else
-        ty = CminusTypeConvertor(builder, param.type);
-    return ty;
-}
-
 void CminusfBuilder::visit(ASTFunDeclaration &node)
 {
     LOG(INFO) << "Enter fun decl " << node.id << "";
     std::vector<Type *> Args{};
     for (auto &&param : node.params)
         Args.push_back(get_valid_param_ty(builder, *param));
-    Type *returnType = CminusTypeConvertor(builder, node.type);
+    Type *returnType = CminusTypeConvertor(node.type);
     auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
     scope.push(node.id, func);
     lastEnteredFun = func;
@@ -366,9 +182,9 @@ void CminusfBuilder::visit(ASTExpressionStmt &node)
 
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
-    auto exitBB = newBasicBlock(builder);
-    auto trueBB = newBasicBlock(builder);
-    auto falseBB = node.else_statement ? newBasicBlock(builder) : exitBB;
+    auto exitBB = newBasicBlock();
+    auto trueBB = newBasicBlock();
+    auto falseBB = node.else_statement ? newBasicBlock() : exitBB;
     node.expression->accept(*this);
     auto cond_res = cal_stack.top();
     cal_stack.pop();
@@ -396,9 +212,9 @@ void CminusfBuilder::visit(ASTSelectionStmt &node)
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
-    auto condBB = newBasicBlock(builder);
-    auto loopBodyBB = newBasicBlock(builder);
-    auto exitBB = newBasicBlock(builder);
+    auto condBB = newBasicBlock();
+    auto loopBodyBB = newBasicBlock();
+    auto exitBB = newBasicBlock();
     builder->create_br(condBB);
     builder->set_insert_point(condBB);
     node.expression->accept(*this);
@@ -431,33 +247,13 @@ void CminusfBuilder::visit(ASTReturnStmt &node)
     isTerminalStmt = true;
 }
 
-Value *get_arr_elem_addr(CminusfBuilder *cbuilder, IRBuilder *builder, Scope &scope, Value *arr, ASTExpression &offset)
-{
-    offset.accept(*cbuilder);
-    auto index = cal_stack.top();
-    cal_stack.pop();
-    compulsiveTypeConvert(index, GET_INT32);
-
-    // Examine wether the index is negative
-    auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
-    auto negBB = newBasicBlock(builder);
-    auto posBB = newBasicBlock(builder);
-    builder->create_cond_br(isIdxNeg, negBB, posBB);
-    builder->set_insert_point(negBB);
-    auto negExcept = scope.find("neg_idx_except");
-    builder->create_call(negExcept, {});
-    builder->create_br(posBB);
-    builder->set_insert_point(posBB);
-
-    return getArrOrPtrAddr(builder, arr, index);
-}
 
 void CminusfBuilder::visit(ASTVar &node)
 {
     auto var = scope.find(node.id);
     if (node.expression) // is an element of an array
     {
-        Value *obj_addr = get_arr_elem_addr(this, builder, scope, var, *(node.expression));
+        Value *obj_addr = get_arr_elem_addr(builder, scope, var, *(node.expression));
         cal_stack.push(builder->create_load(obj_addr));
     }
     else if (var->get_type()->get_pointer_element_type()->is_array_type()) // is of array type
@@ -478,7 +274,7 @@ void CminusfBuilder::visit(ASTAssignExpression &node)
     auto var = scope.find(node.var->id);
     Value *obj_addr;
     if (node.var->expression) // is an array
-        obj_addr = get_arr_elem_addr(this, builder, scope, var, *(node.var->expression));
+        obj_addr = get_arr_elem_addr(builder, scope, var, *(node.var->expression));
     else
         obj_addr = var;
     auto val = cal_stack.top();
