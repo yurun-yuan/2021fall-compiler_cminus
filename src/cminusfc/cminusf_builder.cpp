@@ -1,582 +1,564 @@
-/*
- * 声明：本代码为 2021 秋 中国科大编译原理（李诚）课程实验参考实现。
- * 请不要以任何方式，将本代码上传到可以公开访问的站点或仓库
-*/
-
 #include "cminusf_builder.hpp"
 
+/**
+ * Preambles can be defined here, including `using` 
+ * statements and `#include`.
+ * 
+ */
+
+#include "logging.hpp"
+#include <stack>
+#include <utility>
+#include <functional>
+#include <algorithm>
+
+using namespace std::placeholders;
+using ConvertorFuncType = std::function<void(Value *&)>;
+using CompFuncType = std::function<Value *(Value *left, Value *right)>;
+using AddFuncType = std::function<Value *(Value *left, Value *right)>;
+using MulFuncType = std::function<Value *(Value *left, Value *right)>;
+
+/**
+ * Some infrastructures can be defined here. 
+ * 
+ * If you want to tell other members how to use them, 
+ * write comments, or specify the usage in 
+ * Reports/3-ir-gen/Group discussions.md part "自建基础设施文档"
+ * 
+ */
+
+// use these macros to get constant value
 #define CONST_FP(num) \
     ConstantFP::get((float)num, module.get())
+#define CONST_ZERO(type) \
+    ConstantZero::get(type, module.get())
+
+#define MOD builder->get_module()
+
+// Macros for Type
+#define GET_INT32 Type::get_int32_type(MOD)
+#define GET_FLOAT Type::get_float_type(MOD)
+#define GET_VOID Type::get_void_type(MOD)
+#define GET_BOOL Type::get_int1_type(MOD)
+
 #define CONST_INT(num) \
-    ConstantInt::get(num, module.get())
+    (ConstantInt::get(num, MOD))
+#define CONST_FP(num) \
+    (ConstantFP::get(num, MOD))
 
-// You can define global variables here
-// to store state
+#define GET_CONST(astNum) \
+    ((astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val))
 
-// store temporary value
-Value *tmp_val = nullptr;
-// whether require lvalue
-bool require_lvalue = false;
-// function that is being built
-Function *cur_fun = nullptr;
-// detect scope pre-enter (for elegance only)
-bool pre_enter_scope = false;
-
-// types
-Type *VOID_T;
-Type *INT1_T;
-Type *INT32_T;
-Type *INT32PTR_T;
-Type *FLOAT_T;
-Type *FLOATPTR_T;
-
-bool promote(IRBuilder *builder, Value **l_val_p, Value **r_val_p)
+/**
+ * @brief Convert `enum CminusType` to `Type *`
+ * @param builder just pass the builder in CminusfBuilder to it
+ * @param CminusType a `enum CminusType` value
+ * @return  a `Type *` value. 
+ * 
+ */
+Type *CminusTypeConvertor(IRBuilder *builder, enum CminusType c)
 {
-    bool is_int;
-    auto &l_val = *l_val_p;
-    auto &r_val = *r_val_p;
-    if (l_val->get_type() == r_val->get_type())
+    switch (c)
     {
-        is_int = l_val->get_type()->is_integer_type();
+    case TYPE_INT:
+        return GET_INT32;
+        break;
+    case TYPE_FLOAT:
+        return GET_FLOAT;
+        break;
+    case TYPE_VOID:
+        return GET_VOID;
+        break;
+    default:
+        break;
     }
-    else
-    {
-        is_int = false;
-        if (l_val->get_type()->is_integer_type())
-            l_val = builder->create_sitofp(l_val, FLOAT_T);
-        else
-            r_val = builder->create_sitofp(r_val, FLOAT_T);
-    }
-    return is_int;
 }
 
-/*
- * use CMinusfBuilder::Scope to construct scopes
- * scope.enter: enter a new scope
- * scope.exit: exit current scope
- * scope.push: add a new binding to current scope
- * scope.find: find and return the value bound to the name
+#define INIT(Ty) ConstantZero::get((Ty), MOD)
+
+// See `group discussion.md` for more info
+std::map<Type *, int> typeOrderRank;
+std::map<std::pair<Type *, enum RelOp>, CompFuncType> compFuncTable;
+std::map<std::pair<Type *, enum AddOp>, AddFuncType> addFuncTable;
+std::map<std::pair<Type *, enum MulOp>, MulFuncType> mulFuncTable;
+std::map<std::pair<Type *, Type *>, ConvertorFuncType> compulsiveTypeConvertTable;
+
+Function *lastEnteredFun = nullptr;
+bool enteredFun = true;
+
+/**
+ * @brief  set true if the last parsed statement is a 'terminalStmt'
+ * Refer to report for the definition of 'terminalStmt'
+ */
+bool isTerminalStmt = false;
+std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
+std::list<Argument *>::iterator curArg;
+
+// Use stack to evaluate expressions
+std::stack<Value *> cal_stack;
+
+size_t label_name_cnt = 0;
+Value *getArrOrPtrAddr(IRBuilder *builder, Value *var, Value *index)
+{
+    Value *obj_addr;
+    if (var->get_type()->get_pointer_element_type()->is_array_type()) // is array
+        obj_addr = builder->create_gep(var, {CONST_INT(0), index});
+    else // is pointer
+    {
+        var = builder->create_load(var);
+        obj_addr = builder->create_gep(var, {index});
+    }
+    return obj_addr;
+}
+
+/**
+ * @brief Compulsively convert value `origin` to `target` type.
+ * 
+ * e.g. If `a` is of type `int` and has a non-zero value, 
+ * `compulsiveTypeConvert(a, GET_BOOL)` will change `a` to 
+ * a bool type with value true. 
+ * 
+ */
+void compulsiveTypeConvert(Value *&origin, Type *target)
+{
+    if (origin->get_type() != target)
+        compulsiveTypeConvertTable[{origin->get_type(), target}](origin);
+}
+
+/**
+ * @brief Convert left/right to the same type
+ * 
+ * e.g. If left is of type bool, right is of type int, 
+ * then left is converted to type int with value 1. 
+ * 
+ * The rank of types are as following: 
+ * 1. float
+ * 2. int
+ * 3. bool
+ * 
+ * The conversion can only be performed from a lower-rank type
+ * to a higher-rank type. 
+ * 
+ * @param left 
+ * @param right 
+ * @return Type* The type of left and right after conversion.
+ */
+Type *augmentTypeConvert(Value *&left, Value *&right)
+{
+    auto resType = std::max(left->get_type(), right->get_type(), [&](Type *l, Type *r)
+                            { return typeOrderRank[l] < typeOrderRank[r]; });
+    compulsiveTypeConvert(left, resType);
+    compulsiveTypeConvert(right, resType);
+    return resType;
+}
+
+/**
+ * @brief Same as `Type *augmentTypeConvert(Value *&left, Value *&right)`
+ * with the exception that, after conversion, the rank of
+ * the type of left&right cannot be lower than min.
+ * 
+ * e.g. if left and right are both of type bool, 
+ * after running `compulsiveTypeConvert(left, right, GET_INT)`,
+ * both of them are converted to int. 
+ * @return Type* 
+ */
+Type *augmentTypeConvert(Value *&left, Value *&right, Type *min)
+{
+    auto resType = std::max({left->get_type(), right->get_type(), min}, [&](Type *l, Type *r)
+                            { return typeOrderRank[l] < typeOrderRank[r]; });
+    compulsiveTypeConvert(left, resType);
+    compulsiveTypeConvert(right, resType);
+    return resType;
+}
+
+BasicBlock *newBasicBlock(IRBuilder *builder)
+{
+    return BasicBlock::create(MOD, std::to_string(label_name_cnt++), lastEnteredFun);
+}
+
+/**
+ * Main task: write `visit` functions
+ * 
  */
 
 void CminusfBuilder::visit(ASTProgram &node)
 {
-    VOID_T = Type::get_void_type(module.get());
-    INT1_T = Type::get_int1_type(module.get());
-    INT32_T = Type::get_int32_type(module.get());
-    INT32PTR_T = Type::get_int32_ptr_type(module.get());
-    FLOAT_T = Type::get_float_type(module.get());
-    FLOATPTR_T = Type::get_float_ptr_type(module.get());
+    /**
+     * Since I cannot modify the constructor defined in 
+     * `.hpp` file, I initiate some variables here. 
+     * 
+     */
+    compulsiveTypeConvertTable = {{{GET_INT32, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_icmp_ne(origin, ConstantInt::get(0, MOD)); })},
+                                  {{GET_FLOAT, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_fcmp_ne(origin, ConstantFP::get(0, MOD)); })},
+                                  {{GET_BOOL, GET_INT32}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_zext(origin, GET_INT32); })},
+                                  {{GET_FLOAT, GET_INT32}, ConvertorFuncType([&](Value *&origin)
+                                                                             { origin = builder->create_fptosi(origin, GET_INT32); })},
+                                  {{GET_BOOL, GET_FLOAT}, ConvertorFuncType([&](Value *&origin)
+                                                                            { origin = builder->create_sitofp(builder->create_zext(origin, GET_INT32), GET_FLOAT); })},
+                                  {{GET_INT32, GET_FLOAT}, ConvertorFuncType([&](Value *&origin)
+                                                                             { origin = builder->create_sitofp(origin, GET_FLOAT); })}};
+    typeOrderRank = {{GET_BOOL, 0},
+                     {GET_INT32, 1},
+                     {GET_FLOAT, 2}};
+    compFuncTable = {
+        {{GET_INT32, OP_LT}, [&](Value *left, Value *right)
+         { return builder->create_icmp_lt(left, right); }},
+        {{GET_INT32, OP_LE},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_le(left, right); }},
+        {{GET_INT32, OP_EQ},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_eq(left, right); }},
+        {{GET_INT32, OP_NEQ},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_ne(left, right); }},
+        {{GET_INT32, OP_GT},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_gt(left, right); }},
+        {{GET_INT32, OP_GE},
+         [&](Value *left, Value *right)
+         { return builder->create_icmp_ge(left, right); }},
+        {{GET_FLOAT, OP_LT}, [&](Value *left, Value *right)
+         { return builder->create_fcmp_lt(left, right); }},
+        {{GET_FLOAT, OP_LE},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_le(left, right); }},
+        {{GET_FLOAT, OP_EQ},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_eq(left, right); }},
+        {{GET_FLOAT, OP_NEQ},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_ne(left, right); }},
+        {{GET_FLOAT, OP_GT},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_gt(left, right); }},
+        {{GET_FLOAT, OP_GE},
+         [&](Value *left, Value *right)
+         { return builder->create_fcmp_ge(left, right); }}};
+    addFuncTable = {{{GET_INT32, OP_PLUS}, [&](Value *left, Value *right)
+                     { return builder->create_iadd(left, right); }},
+                    {{GET_INT32, OP_MINUS}, [&](Value *left, Value *right)
+                     { return builder->create_isub(left, right); }},
+                    {{GET_FLOAT, OP_PLUS}, [&](Value *left, Value *right)
+                     { return builder->create_fadd(left, right); }},
+                    {{GET_FLOAT, OP_MINUS}, [&](Value *left, Value *right)
+                     { return builder->create_fsub(left, right); }}};
+    mulFuncTable = {{{GET_INT32, OP_MUL}, [&](Value *left, Value *right)
+                     { return builder->create_imul(left, right); }},
+                    {{GET_INT32, OP_DIV}, [&](Value *left, Value *right)
+                     { return builder->create_isdiv(left, right); }},
+                    {{GET_FLOAT, OP_MUL}, [&](Value *left, Value *right)
+                     { return builder->create_fmul(left, right); }},
+                    {{GET_FLOAT, OP_DIV}, [&](Value *left, Value *right)
+                     { return builder->create_fdiv(left, right); }}};
 
-    for (auto decl : node.declarations)
-    {
-        decl->accept(*this);
-    }
+    std::for_each(node.declarations.begin(), node.declarations.end(), [&](auto &ptr)
+                  { ptr->accept(*this); });
 }
 
 void CminusfBuilder::visit(ASTNum &node)
 {
-    if (node.type == TYPE_INT)
-        tmp_val = CONST_INT(node.i_val);
-    else
-        tmp_val = CONST_FP(node.f_val);
+    LOG(INFO) << "Enter num " << node.i_val << "; " << node.f_val;
+    cal_stack.push(GET_CONST(node));
+    LOG_INFO << "Exit num";
 }
 
 void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
-    Type *var_type;
-    if (node.type == TYPE_INT)
-        var_type = Type::get_int32_type(module.get());
-    else
-        var_type = Type::get_float_type(module.get());
-    if (node.num == nullptr)
+    LOG(INFO) << "Enter var decl " << node.id;
+    Type *baseType, *finalType;
+    baseType = CminusTypeConvertor(builder, node.type);
+    if (node.num) // is an array
     {
-        if (scope.in_global())
-        {
-            auto initializer = ConstantZero::get(var_type, module.get());
-            auto var = GlobalVariable::create(
-                node.id,
-                module.get(),
-                var_type,
-                false,
-                initializer);
-            scope.push(node.id, var);
-        }
-        else
-        {
-            auto var = builder->create_alloca(var_type);
-            scope.push(node.id, var);
-        }
+        LOG(INFO) << "is array";
+        finalType = ArrayType::get(baseType, node.num->i_val);
     }
     else
+        finalType = baseType;
+
+    if (this->scope.in_global())
     {
-        auto *array_type = ArrayType::get(var_type, node.num->i_val);
-        if (scope.in_global())
-        {
-            auto initializer = ConstantZero::get(array_type, module.get());
-            auto var = GlobalVariable::create(
-                node.id,
-                module.get(),
-                array_type,
-                false,
-                initializer);
-            scope.push(node.id, var);
-        }
-        else
-        {
-            auto var = builder->create_alloca(array_type);
-            scope.push(node.id, var);
-        }
+        Constant *init_val = ConstantZero::get(baseType, MOD);
+        auto val = GlobalVariable::create(node.id, MOD, finalType, false, init_val);
+        this->scope.push(node.id, val);
     }
+    else
+        this->scope.push(node.id, this->builder->create_alloca(finalType));
+    LOG(INFO) << "Exit var decl" << node.id;
+}
+
+auto get_valid_param_ty(IRBuilder *builder, ASTParam &param)
+{
+    Type *ty;
+    if (param.isarray)
+        ty = PointerType::get(CminusTypeConvertor(builder, param.type));
+    else
+        ty = CminusTypeConvertor(builder, param.type);
+    return ty;
 }
 
 void CminusfBuilder::visit(ASTFunDeclaration &node)
 {
-    FunctionType *fun_type;
-    Type *ret_type;
-    std::vector<Type *> param_types;
-    if (node.type == TYPE_INT)
-        ret_type = INT32_T;
-    else if (node.type == TYPE_FLOAT)
-        ret_type = FLOAT_T;
-    else
-        ret_type = VOID_T;
-
-    for (auto &param : node.params)
-    {
-        if (param->type == TYPE_INT)
-        {
-            if (param->isarray)
-            {
-                param_types.push_back(INT32PTR_T);
-            }
-            else
-            {
-                param_types.push_back(INT32_T);
-            }
-        }
-        else
-        {
-            if (param->isarray)
-            {
-                param_types.push_back(FLOATPTR_T);
-            }
-            else
-            {
-                param_types.push_back(FLOAT_T);
-            }
-        }
-    }
-
-    fun_type = FunctionType::get(ret_type, param_types);
-    auto fun =
-        Function::create(
-            fun_type,
-            node.id,
-            module.get());
-    scope.push(node.id, fun);
-    cur_fun = fun;
-    auto funBB = BasicBlock::create(module.get(), "entry", fun);
-    builder->set_insert_point(funBB);
-    scope.enter();
-    pre_enter_scope = true;
-    std::vector<Value *> args;
-    for (auto arg = fun->arg_begin(); arg != fun->arg_end(); arg++)
-    {
-        args.push_back(*arg);
-    }
-    for (int i = 0; i < node.params.size(); ++i)
-    {
-        if (node.params[i]->isarray)
-        {
-            Value *array_alloc;
-            if (node.params[i]->type == TYPE_INT)
-                array_alloc = builder->create_alloca(INT32PTR_T);
-            else
-                array_alloc = builder->create_alloca(FLOATPTR_T);
-            builder->create_store(args[i], array_alloc);
-            scope.push(node.params[i]->id, array_alloc);
-        }
-        else
-        {
-            Value *alloc;
-            if (node.params[i]->type == TYPE_INT)
-                alloc = builder->create_alloca(INT32_T);
-            else
-                alloc = builder->create_alloca(FLOAT_T);
-            builder->create_store(args[i], alloc);
-            scope.push(node.params[i]->id, alloc);
-        }
-    }
+    LOG(INFO) << "Enter fun decl " << node.id << "";
+    std::vector<Type *> Args{};
+    for (auto &&param : node.params)
+        Args.push_back(get_valid_param_ty(builder, *param));
+    Type *returnType = CminusTypeConvertor(builder, node.type);
+    auto func = Function::create(FunctionType::get(returnType, Args), node.id, MOD);
+    scope.push(node.id, func);
+    lastEnteredFun = func;
+    enteredFun = true;
+    auto bb = BasicBlock::create(MOD, "entry", func);
+    builder->set_insert_point(bb);
+    params = &node.params;
     node.compound_stmt->accept(*this);
-    if (builder->get_insert_block()->get_terminator() == nullptr)
+    if (!isTerminalStmt)
     {
-        if (cur_fun->get_return_type()->is_void_type())
-            builder->create_void_ret();
-        else if (cur_fun->get_return_type()->is_float_type())
-            builder->create_ret(CONST_FP(0.));
+        LOG_INFO << "No terminate stmt";
+        if (lastEnteredFun->get_return_type() != GET_VOID)
+            LOG_ERROR << "Non void function without return statement is forbidden";
         else
-            builder->create_ret(CONST_INT(0));
+            builder->create_void_ret();
+    }
+    isTerminalStmt = false;
+
+    LOG(INFO) << "Exit func decl" << node.id;
+}
+
+void CminusfBuilder::visit(ASTParam &node)
+{
+    auto alloca = builder->create_alloca(get_valid_param_ty(builder, node));
+    scope.push(node.id, alloca);
+    builder->create_store(*curArg++, alloca);
+}
+
+void CminusfBuilder::visit(ASTCompoundStmt &node)
+{
+    LOG(INFO) << "Enter compoundstmt";
+    scope.enter();
+    if (enteredFun) // This compoundStmt is a function body
+    {
+        curArg = lastEnteredFun->arg_begin();
+        for (auto &&param : *params)
+            param->accept(*this);
+        params = nullptr;
+        enteredFun = false;
+    }
+    for (auto &&varDecl : node.local_declarations)
+        varDecl->accept(*this);
+    for (auto &&stmt : node.statement_list)
+    {
+        stmt->accept(*this);
+        if (isTerminalStmt)
+            break;
     }
     scope.exit();
 }
 
-void CminusfBuilder::visit(ASTParam &node) {}
-
-void CminusfBuilder::visit(ASTCompoundStmt &node)
-{
-    bool need_exit_scope = !pre_enter_scope;
-    if (pre_enter_scope)
-    {
-        pre_enter_scope = false;
-    }
-    else
-    {
-        scope.enter();
-    }
-
-    for (auto &decl : node.local_declarations)
-    {
-        decl->accept(*this);
-    }
-
-    for (auto &stmt : node.statement_list)
-    {
-        stmt->accept(*this);
-        if (builder->get_insert_block()->get_terminator() != nullptr)
-            break;
-    }
-
-    if (need_exit_scope)
-    {
-        scope.exit();
-    }
-}
-
 void CminusfBuilder::visit(ASTExpressionStmt &node)
 {
-    if (node.expression != nullptr)
-        node.expression->accept(*this);
+    node.expression->accept(*this);
+    cal_stack.pop();
 }
 
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
+    auto exitBB = newBasicBlock(builder);
+    auto trueBB = newBasicBlock(builder);
+    auto falseBB = node.else_statement ? newBasicBlock(builder) : exitBB;
     node.expression->accept(*this);
-    auto ret_val = tmp_val;
-    auto trueBB = BasicBlock::create(module.get(), "", cur_fun);
-    auto falseBB = BasicBlock::create(module.get(), "", cur_fun);
-    auto contBB = BasicBlock::create(module.get(), "", cur_fun);
-    Value *cond_val;
-    if (ret_val->get_type()->is_integer_type())
-        cond_val = builder->create_icmp_ne(ret_val, CONST_INT(0));
-    else
-        cond_val = builder->create_fcmp_ne(ret_val, CONST_FP(0.));
-
-    if (node.else_statement == nullptr)
-    {
-        builder->create_cond_br(cond_val, trueBB, contBB);
-    }
-    else
-    {
-        builder->create_cond_br(cond_val, trueBB, falseBB);
-    }
+    auto cond_res = cal_stack.top();
+    cal_stack.pop();
+    compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(cond_res, trueBB, falseBB);
     builder->set_insert_point(trueBB);
     node.if_statement->accept(*this);
-
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-        builder->create_br(contBB);
-
-    if (node.else_statement == nullptr)
-    {
-        falseBB->erase_from_parent();
-    }
-    else
+    auto if_stmt_terminate = isTerminalStmt;
+    if (!isTerminalStmt)
+        builder->create_br(exitBB);
+    isTerminalStmt = false;
+    if (node.else_statement)
     {
         builder->set_insert_point(falseBB);
         node.else_statement->accept(*this);
-        if (builder->get_insert_block()->get_terminator() == nullptr)
-            builder->create_br(contBB);
+        if (!isTerminalStmt)
+            builder->create_br(exitBB);
+        isTerminalStmt = isTerminalStmt && if_stmt_terminate;
     }
-
-    builder->set_insert_point(contBB);
+    if (!isTerminalStmt)
+        builder->set_insert_point(exitBB);
+    else
+        lastEnteredFun->remove(exitBB);
 }
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
-    auto exprBB = BasicBlock::create(module.get(), "", cur_fun);
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-        builder->create_br(exprBB);
-    builder->set_insert_point(exprBB);
+    auto condBB = newBasicBlock(builder);
+    auto loopBodyBB = newBasicBlock(builder);
+    auto exitBB = newBasicBlock(builder);
+    builder->create_br(condBB);
+    builder->set_insert_point(condBB);
     node.expression->accept(*this);
-    auto ret_val = tmp_val;
-    auto trueBB = BasicBlock::create(module.get(), "", cur_fun);
-    auto contBB = BasicBlock::create(module.get(), "", cur_fun);
-    Value *cond_val;
-    if (ret_val->get_type()->is_integer_type())
-        cond_val = builder->create_icmp_ne(ret_val, CONST_INT(0));
-    else
-        cond_val = builder->create_fcmp_ne(ret_val, CONST_FP(0.));
-
-    builder->create_cond_br(cond_val, trueBB, contBB);
-    builder->set_insert_point(trueBB);
+    auto cond_res = cal_stack.top();
+    cal_stack.pop();
+    compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(cond_res, loopBodyBB, exitBB);
+    builder->set_insert_point(loopBodyBB);
     node.statement->accept(*this);
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-        builder->create_br(exprBB);
-    builder->set_insert_point(contBB);
+    if (isTerminalStmt)
+        isTerminalStmt = false;
+    else
+        builder->create_br(condBB);
+
+    builder->set_insert_point(exitBB);
 }
 
 void CminusfBuilder::visit(ASTReturnStmt &node)
 {
-    if (node.expression == nullptr)
+    if (node.expression)
     {
-        builder->create_void_ret();
+        node.expression->accept(*this);
+        auto retVal = cal_stack.top();
+        compulsiveTypeConvert(retVal, lastEnteredFun->get_return_type());
+        builder->create_ret(retVal);
+        cal_stack.pop();
     }
     else
-    {
-        auto fun_ret_type = cur_fun->get_function_type()->get_return_type();
-        node.expression->accept(*this);
-        if (fun_ret_type != tmp_val->get_type())
-        {
-            if (fun_ret_type->is_integer_type())
-                tmp_val = builder->create_fptosi(tmp_val, INT32_T);
-            else
-                tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
-        }
+        builder->create_void_ret();
+    isTerminalStmt = true;
+}
 
-        builder->create_ret(tmp_val);
-    }
+Value *get_arr_elem_addr(CminusfBuilder *cbuilder, IRBuilder *builder, Scope &scope, Value *arr, ASTExpression &offset)
+{
+    offset.accept(*cbuilder);
+    auto index = cal_stack.top();
+    cal_stack.pop();
+    compulsiveTypeConvert(index, GET_INT32);
+
+    // Examine wether the index is negative
+    auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
+    auto negBB = newBasicBlock(builder);
+    auto posBB = newBasicBlock(builder);
+    builder->create_cond_br(isIdxNeg, negBB, posBB);
+    builder->set_insert_point(negBB);
+    auto negExcept = scope.find("neg_idx_except");
+    builder->create_call(negExcept, {});
+    builder->create_br(posBB);
+    builder->set_insert_point(posBB);
+
+    return getArrOrPtrAddr(builder, arr, index);
 }
 
 void CminusfBuilder::visit(ASTVar &node)
 {
     auto var = scope.find(node.id);
-    assert(var != nullptr);
-    auto is_int = var->get_type()->get_pointer_element_type()->is_integer_type();
-    auto is_float = var->get_type()->get_pointer_element_type()->is_float_type();
-    auto is_ptr = var->get_type()->get_pointer_element_type()->is_pointer_type();
-    bool should_return_lvalue = require_lvalue;
-    require_lvalue = false;
-    if (node.expression == nullptr)
+    if (node.expression) // is an element of an array
     {
-        if (should_return_lvalue)
-        {
-            tmp_val = var;
-            require_lvalue = false;
-        }
-        else
-        {
-            if (is_int || is_float || is_ptr)
-            {
-                tmp_val = builder->create_load(var);
-            }
-            else
-            {
-                tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(0)});
-            }
-        }
+        Value *obj_addr = get_arr_elem_addr(this, builder, scope, var, *(node.expression));
+        cal_stack.push(builder->create_load(obj_addr));
+    }
+    else if (var->get_type()->get_pointer_element_type()->is_array_type()) // is of array type
+    {
+        auto firstElemAddr = builder->create_gep(var, {CONST_INT(0), CONST_INT(0)});
+        cal_stack.push(firstElemAddr);
     }
     else
     {
-        node.expression->accept(*this);
-        auto val = tmp_val;
-        Value *is_neg;
-        auto exceptBB = BasicBlock::create(module.get(), "", cur_fun);
-        auto contBB = BasicBlock::create(module.get(), "", cur_fun);
-        if (val->get_type()->is_float_type())
-            val = builder->create_fptosi(val, INT32_T);
-
-        is_neg = builder->create_icmp_lt(val, CONST_INT(0));
-
-        builder->create_cond_br(is_neg, exceptBB, contBB);
-        builder->set_insert_point(exceptBB);
-        auto neg_idx_except_fun = scope.find("neg_idx_except");
-        builder->create_call(static_cast<Function *>(neg_idx_except_fun), {});
-        if (cur_fun->get_return_type()->is_void_type())
-            builder->create_void_ret();
-        else if (cur_fun->get_return_type()->is_float_type())
-            builder->create_ret(CONST_FP(0.));
-        else
-            builder->create_ret(CONST_INT(0));
-
-        builder->set_insert_point(contBB);
-        Value *tmp_ptr;
-        if (is_int || is_float)
-            tmp_ptr = builder->create_gep(var, {val});
-        else if (is_ptr)
-        {
-            auto array_load = builder->create_load(var);
-            tmp_ptr = builder->create_gep(array_load, {val});
-        }
-        else
-            tmp_ptr = builder->create_gep(var, {CONST_INT(0), val});
-        if (should_return_lvalue)
-        {
-            tmp_val = tmp_ptr;
-            require_lvalue = false;
-        }
-        else
-        {
-            tmp_val = builder->create_load(tmp_ptr);
-        }
+        Value *obj_addr = var;
+        cal_stack.push(builder->create_load(obj_addr));
     }
 }
 
 void CminusfBuilder::visit(ASTAssignExpression &node)
 {
     node.expression->accept(*this);
-    auto expr_result = tmp_val;
-    require_lvalue = true;
-    node.var->accept(*this);
-    auto var_addr = tmp_val;
-    if (var_addr->get_type()->get_pointer_element_type() != expr_result->get_type())
-    {
-        if (expr_result->get_type() == INT32_T)
-            expr_result = builder->create_sitofp(expr_result, FLOAT_T);
-        else
-            expr_result = builder->create_fptosi(expr_result, INT32_T);
-    }
-    builder->create_store(expr_result, var_addr);
-    tmp_val = expr_result;
+    auto var = scope.find(node.var->id);
+    Value *obj_addr;
+    if (node.var->expression) // is an array
+        obj_addr = get_arr_elem_addr(this, builder, scope, var, *(node.var->expression));
+    else
+        obj_addr = var;
+    auto val = cal_stack.top();
+    cal_stack.pop();
+    compulsiveTypeConvert(val, obj_addr->get_type()->get_pointer_element_type());
+    builder->create_store(val, obj_addr);
+    cal_stack.push(builder->create_load(obj_addr));
 }
 
 void CminusfBuilder::visit(ASTSimpleExpression &node)
 {
-    if (node.additive_expression_r == nullptr)
+    if (!node.additive_expression_r)
     {
         node.additive_expression_l->accept(*this);
+        return;
     }
-    else
-    {
-        node.additive_expression_l->accept(*this);
-        auto l_val = tmp_val;
-        node.additive_expression_r->accept(*this);
-        auto r_val = tmp_val;
-        bool is_int = promote(builder, &l_val, &r_val);
-        Value *cmp;
-        switch (node.op)
-        {
-        case OP_LT:
-            if (is_int)
-                cmp = builder->create_icmp_lt(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_lt(l_val, r_val);
-            break;
-        case OP_LE:
-            if (is_int)
-                cmp = builder->create_icmp_le(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_le(l_val, r_val);
-            break;
-        case OP_GE:
-            if (is_int)
-                cmp = builder->create_icmp_ge(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_ge(l_val, r_val);
-            break;
-        case OP_GT:
-            if (is_int)
-                cmp = builder->create_icmp_gt(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_gt(l_val, r_val);
-            break;
-        case OP_EQ:
-            if (is_int)
-                cmp = builder->create_icmp_eq(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_eq(l_val, r_val);
-            break;
-        case OP_NEQ:
-            if (is_int)
-                cmp = builder->create_icmp_ne(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_ne(l_val, r_val);
-            break;
-        }
+    node.additive_expression_l->accept(*this);
+    node.additive_expression_r->accept(*this);
+    auto right = cal_stack.top();
+    cal_stack.pop();
+    auto left = cal_stack.top();
+    cal_stack.pop();
 
-        tmp_val = builder->create_zext(cmp, INT32_T);
-    }
+    auto resType = augmentTypeConvert(left, right, GET_INT32);
+    Value *res = compFuncTable[{resType, node.op}](left, right);
+    cal_stack.push(res);
 }
 
 void CminusfBuilder::visit(ASTAdditiveExpression &node)
 {
-    if (node.additive_expression == nullptr)
+    if (!node.additive_expression)
     {
         node.term->accept(*this);
+        return;
     }
-    else
-    {
-        node.additive_expression->accept(*this);
-        auto l_val = tmp_val;
-        node.term->accept(*this);
-        auto r_val = tmp_val;
-        bool is_int = promote(builder, &l_val, &r_val);
-        switch (node.op)
-        {
-        case OP_PLUS:
-            if (is_int)
-                tmp_val = builder->create_iadd(l_val, r_val);
-            else
-                tmp_val = builder->create_fadd(l_val, r_val);
-            break;
-        case OP_MINUS:
-            if (is_int)
-                tmp_val = builder->create_isub(l_val, r_val);
-            else
-                tmp_val = builder->create_fsub(l_val, r_val);
-            break;
-        }
-    }
+    node.additive_expression->accept(*this);
+    node.term->accept(*this);
+    auto right = cal_stack.top();
+    cal_stack.pop();
+    auto left = cal_stack.top();
+    cal_stack.pop();
+
+    auto resType = augmentTypeConvert(left, right, GET_INT32);
+    Value *res = addFuncTable[{resType, node.op}](left, right);
+    cal_stack.push(res);
 }
 
 void CminusfBuilder::visit(ASTTerm &node)
 {
-    if (node.term == nullptr)
+    if (!node.term)
     {
         node.factor->accept(*this);
+        return;
     }
-    else
-    {
-        node.term->accept(*this);
-        auto l_val = tmp_val;
-        node.factor->accept(*this);
-        auto r_val = tmp_val;
-        bool is_int = promote(builder, &l_val, &r_val);
-        switch (node.op)
-        {
-        case OP_MUL:
-            if (is_int)
-                tmp_val = builder->create_imul(l_val, r_val);
-            else
-                tmp_val = builder->create_fmul(l_val, r_val);
-            break;
-        case OP_DIV:
-            if (is_int)
-                tmp_val = builder->create_isdiv(l_val, r_val);
-            else
-                tmp_val = builder->create_fdiv(l_val, r_val);
-            break;
-        }
-    }
+    node.term->accept(*this);
+    node.factor->accept(*this);
+    auto right = cal_stack.top();
+    cal_stack.pop();
+    auto left = cal_stack.top();
+    cal_stack.pop();
+
+    auto resType = augmentTypeConvert(left, right, GET_INT32);
+    Value *res = mulFuncTable[{resType, node.op}](left, right);
+    cal_stack.push(res);
 }
 
 void CminusfBuilder::visit(ASTCall &node)
 {
-    auto fun = static_cast<Function *>(scope.find(node.id));
+    LOG_INFO << "Enter call " << node.id;
+    auto callee = scope.find(node.id);
     std::vector<Value *> args;
-    auto param_type = fun->get_function_type()->param_begin();
-    for (auto &arg : node.args)
+    auto formalArg = dynamic_cast<Function *>(callee)->arg_begin();
+    for (auto &&expr : node.args)
     {
-        arg->accept(*this);
-        if (!tmp_val->get_type()->is_pointer_type() &&
-            *param_type != tmp_val->get_type())
-        {
-            if (tmp_val->get_type()->is_integer_type())
-                tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
-            else
-                tmp_val = builder->create_fptosi(tmp_val, INT32_T);
-        }
-        args.push_back(tmp_val);
-        param_type++;
+        expr->accept(*this);
+        auto arg = cal_stack.top();
+        cal_stack.pop();
+        compulsiveTypeConvert(arg, (*formalArg++)->get_type());
+        args.push_back(arg);
     }
-
-    tmp_val = builder->create_call(static_cast<Function *>(fun), args);
+    cal_stack.push(builder->create_call(callee, std::move(args)));
+    LOG_INFO << "Exit call" << node.id;
 }
