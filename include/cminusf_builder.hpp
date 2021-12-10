@@ -131,6 +131,74 @@ public:
         scope.push("output", output_fun);
         scope.push("outputFloat", output_float_fun);
         scope.push("neg_idx_except", neg_idx_except_fun);
+
+        // Initialize function tables
+        compulsiveTypeConvertTable = {{{GET_INT32, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
+                                                                                { origin = builder->create_icmp_ne(origin, ConstantInt::get(0, MOD)); })},
+                                      {{GET_FLOAT, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
+                                                                                { origin = builder->create_fcmp_ne(origin, ConstantFP::get(0, MOD)); })},
+                                      {{GET_BOOL, GET_INT32}, ConvertorFuncType([&](Value *&origin)
+                                                                                { origin = builder->create_zext(origin, GET_INT32); })},
+                                      {{GET_FLOAT, GET_INT32}, ConvertorFuncType([&](Value *&origin)
+                                                                                 { origin = builder->create_fptosi(origin, GET_INT32); })},
+                                      {{GET_BOOL, GET_FLOAT}, ConvertorFuncType([&](Value *&origin)
+                                                                                { origin = builder->create_sitofp(builder->create_zext(origin, GET_INT32), GET_FLOAT); })},
+                                      {{GET_INT32, GET_FLOAT}, ConvertorFuncType([&](Value *&origin)
+                                                                                 { origin = builder->create_sitofp(origin, GET_FLOAT); })}};
+        typeOrderRank = {{GET_BOOL, 0},
+                         {GET_INT32, 1},
+                         {GET_FLOAT, 2}};
+        compFuncTable = {
+            {{GET_INT32, OP_LT}, [&](Value *left, Value *right)
+             { return builder->create_icmp_lt(left, right); }},
+            {{GET_INT32, OP_LE},
+             [&](Value *left, Value *right)
+             { return builder->create_icmp_le(left, right); }},
+            {{GET_INT32, OP_EQ},
+             [&](Value *left, Value *right)
+             { return builder->create_icmp_eq(left, right); }},
+            {{GET_INT32, OP_NEQ},
+             [&](Value *left, Value *right)
+             { return builder->create_icmp_ne(left, right); }},
+            {{GET_INT32, OP_GT},
+             [&](Value *left, Value *right)
+             { return builder->create_icmp_gt(left, right); }},
+            {{GET_INT32, OP_GE},
+             [&](Value *left, Value *right)
+             { return builder->create_icmp_ge(left, right); }},
+            {{GET_FLOAT, OP_LT}, [&](Value *left, Value *right)
+             { return builder->create_fcmp_lt(left, right); }},
+            {{GET_FLOAT, OP_LE},
+             [&](Value *left, Value *right)
+             { return builder->create_fcmp_le(left, right); }},
+            {{GET_FLOAT, OP_EQ},
+             [&](Value *left, Value *right)
+             { return builder->create_fcmp_eq(left, right); }},
+            {{GET_FLOAT, OP_NEQ},
+             [&](Value *left, Value *right)
+             { return builder->create_fcmp_ne(left, right); }},
+            {{GET_FLOAT, OP_GT},
+             [&](Value *left, Value *right)
+             { return builder->create_fcmp_gt(left, right); }},
+            {{GET_FLOAT, OP_GE},
+             [&](Value *left, Value *right)
+             { return builder->create_fcmp_ge(left, right); }}};
+        addFuncTable = {{{GET_INT32, OP_PLUS}, [&](Value *left, Value *right)
+                         { return builder->create_iadd(left, right); }},
+                        {{GET_INT32, OP_MINUS}, [&](Value *left, Value *right)
+                         { return builder->create_isub(left, right); }},
+                        {{GET_FLOAT, OP_PLUS}, [&](Value *left, Value *right)
+                         { return builder->create_fadd(left, right); }},
+                        {{GET_FLOAT, OP_MINUS}, [&](Value *left, Value *right)
+                         { return builder->create_fsub(left, right); }}};
+        mulFuncTable = {{{GET_INT32, OP_MUL}, [&](Value *left, Value *right)
+                         { return builder->create_imul(left, right); }},
+                        {{GET_INT32, OP_DIV}, [&](Value *left, Value *right)
+                         { return builder->create_isdiv(left, right); }},
+                        {{GET_FLOAT, OP_MUL}, [&](Value *left, Value *right)
+                         { return builder->create_fmul(left, right); }},
+                        {{GET_FLOAT, OP_DIV}, [&](Value *left, Value *right)
+                         { return builder->create_fdiv(left, right); }}};
     }
 
     std::unique_ptr<Module> getModule()
