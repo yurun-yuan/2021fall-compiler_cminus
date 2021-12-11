@@ -27,13 +27,15 @@ void pass_node(char *text){
 \-	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return SUB;}
 \*	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return MUL;}
 \/	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return DIV;}
+&    {pos_start = pos_end; pos_end += 1; pass_node(yytext); return ADDROF;}
+\.   {pos_start = pos_end; pos_end += 1; pass_node(yytext); return MEMACC;}
 \<	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return LT;}
 \<=	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return LTE;}
 \>	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return GT;}
 \>=	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return GTE;}
 ==	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return EQ;}
 !=	{pos_start = pos_end; pos_end += 2; pass_node(yytext); return NEQ;}
-=	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return ASSIN;}
+=	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return ASSIGN;}
 ;	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return SEMICOLON;}
 ,	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return COMMA;}
 \(	{pos_start = pos_end; pos_end += 1; pass_node(yytext); return LPARENTHESE;}
@@ -49,12 +51,16 @@ float   {pos_start = pos_end; pos_end += 5; pass_node(yytext); return FLOAT;}
 return 	{pos_start = pos_end; pos_end += 6; pass_node(yytext); return RETURN;}
 void 	{pos_start = pos_end; pos_end += 4; pass_node(yytext); return VOID;}
 while 	{pos_start = pos_end; pos_end += 5; pass_node(yytext); return WHILE;}
+struct    {pos_start = pos_end; pos_end += 6; pass_node(yytext); return STRUCT;}
+auto      {pos_start = pos_end; pos_end += 4; pass_node(yytext); return AUTO;}
 [a-zA-Z]+	{pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return IDENTIFIER;}
 [0-9]+	{pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return INTEGER;}
 [0-9]+\.[0-9]*|[0-9]*\.[0-9]+ { pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return FLOATPOINT; }
 
 \n 	{lines++; pos_start = 1; pos_end = 1;}
 [ \t] 	{pos_start = pos_end; pos_end += 1;}
+
+\"(\\.|[^\"])*\" {pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return STRING;}
 
 "/*"             { pos_start = pos_end; pos_end += 2; BEGIN(COMMENT); }
 <COMMENT>"*/"    { pos_start = pos_end; pos_end += 2; BEGIN(INITIAL); }
