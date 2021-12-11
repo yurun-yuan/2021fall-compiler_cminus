@@ -25,6 +25,7 @@
 > 实验中遇到哪些挑战
 
 1. 在使用容器迭代器遍历过程中错误地使用迭代器修改容器内元素值，导致迭代器失效。
+1. 理解IR中`Instruction`的构造，类似于树状结构。
 
 ## 实验设计
 
@@ -497,8 +498,180 @@
             
 
 * 活跃变量分析
-    实现思路：
-    相应的代码：
+  
+    ​	实现思路：
+    
+    ​	整体上使用课本上的算法，流程如下：
+    
+    1. 初始化每个块的`OUT[B],IN[B],DEF[B],USE[B]`集合，但实验中由于我们认为`phi`函数中的变量只在对应的块中保持活跃，因此仍需要记录每个块的`phi`函数中基本块与变量的对应以便后续使用。
+    
+    2. 遍历所有的块按照以下公式来计算每个块的`OUT,IN`集合，直到所有的`IN[B]`集合不再改变。
+    
+       但有一点需要注意，在循环时IN的集合中不应有PHI中的变量，需要在循环结束后再填入。
+    
+    $$
+    \begin{aligned}
+    OUT[B] &= \cup(IN[S]\cup PHI_S[B]), S \in B.succ\\
+    IN[B] &= USE[B] \cup(OUT[B] - DEF[B])
+    \end{aligned}
+    $$
+    
+    
+    
+    ​	相应的代码：
+    
+    		1. 数据结构：
+    
+    ```c++
+    set<Value*> DEF;//单个块DEF集合，通过变量索引
+    set<Value*> USE;//单块USE集合，通过变量索引
+    map<Value*, set<Value*> > PHI_USES;//单块Phi_user集合，通过前驱块索引，得到前驱块对应的需要phi的变量。
+    map<BasicBlock*, set<Value*> > live_use;//函数中的USE集合的集合，通过BB块索引，得到对应BB块的USE集合
+    map<BasicBlock*, set<Value*> > live_def;//函数中的USE集合的集合，通过BB块索引，得到对应BB块的USE集合
+    map<BasicBlock*, map<Value*, set<Value*> > > live_phi_use;//函数中的PHImap的集合，通过BB块索引，得到对应bb块的PHI map
+    ```
+    
+    2. 各阶段代码:
+    
+       1. 初始化：
+    
+       ```c++
+       map<BasicBlock*, set<Value*> > live_use;
+       map<BasicBlock*, set<Value*> > live_def;
+       map<BasicBlock*, map<Value*, set<Value*> > > live_phi_use;
+       // 在此分析 func_ 的每个bb块的活跃变量，并存储在 live_in live_out 结构内
+       for(auto bb : func_->get_basic_blocks())
+       {
+           set<Value*> DEF;//DEF集合
+           set<Value*> USE;//USE集合
+           map<Value*, set<Value*> > PHI_USES;//Phi_user集合
+           live_in.insert(pair<BasicBlock *, set<Value *> >{bb,set<Value*>()});
+           live_out.insert(pair<BasicBlock *, set<Value *> >{bb,set<Value*>()});
+           for(auto inst : bb->get_instructions())
+           {
+               if(inst->is_ret() || inst->is_store() || inst->is_br())//这三种命令不会对DEF更新
+               {
+                   for(auto op : inst->get_operands())
+                   {
+                       if(DEF.find(op) == DEF.end() && !dynamic_cast<Constant *>(op) && !dynamic_cast<BasicBlock*>(op))//排除各语句中的常数和br命令中可能出现的bb块
+                           USE.insert(op);
+                   }
+               }//if(inst->is_void())
+               else if(inst->is_phi())//phi语句单独处理
+               {
+                   DEF.insert(inst);//由于是静态单赋值，可以在判断use之前直接更新def
+                   auto op_list = inst->get_operands();
+                   for(int i = 0; i < op_list.size() / 2; i++)//phi中的数据对为[变量,bb] ，即偶数下标对应的是变量，奇数下标对应的是bb块
+                   {
+                       if(dynamic_cast<Constant *>(op_list[2 * i])) continue;
+                       auto it = PHI_USES.find(op_list[2*i + 1]);
+                       if( it == PHI_USES.end())//不能找到，为此bb新建phi集合
+                       {
+                           set<Value *> phi_value;
+                           phi_value.insert(op_list[2*i]);
+                           PHI_USES.insert(pair<Value*, set<Value*> >{op_list[2*i+1],phi_value});
+                       }
+                       else//可以找到，在此bb的phi集合中插入value。
+                       {
+                           it->second.insert(op_list[2*i]);
+                       }
+                   }
+               }//else if(inst->is_phi())
+               else if(inst->is_call())
+               {
+                   auto op_list = inst->get_operands();
+                   for(int i = 1; i < op_list.size(); i++)
+                   {
+                       if(DEF.find(op_list[i]) == DEF.end() && !dynamic_cast<Constant *>(op_list[i]))
+                           USE.insert(op_list[i]);
+                   }
+                   if(!inst->get_type()->is_void_type())//call可能没有返回值，因此对def的更新需要判断。
+                   {
+                       if(USE.find(inst) == USE.end())
+                           DEF.insert(inst);
+                   }
+               }//else if(inst->is_call())
+               else//其余指令均可以用下述通用代码初始化
+               {
+                   for(auto op : inst->get_operands())
+                   {
+                       if(DEF.find(op) == DEF.end() && !dynamic_cast<Constant *>(op))
+                           USE.insert(op);
+                   }
+                   if(USE.find(inst) == USE.end())
+                       DEF.insert(inst);
+               }//else
+           }//for(auto inst : bb->get_instructions())
+       
+           live_use.insert(pair<BasicBlock*, set<Value*> >{bb,USE});
+           live_def.insert(pair<BasicBlock*, set<Value*> >{bb,DEF});
+           live_phi_use.insert(pair<BasicBlock*, map<Value*, set<Value*> > >{bb,PHI_USES});
+       }
+       ```
+    
+       2. 算法：
+    
+       ```c++
+       bool is_in_modified = true;//用于判断in是否有修改
+       while(is_in_modified)
+       {
+           is_in_modified = false;
+           for(auto bb : func_->get_basic_blocks())
+           {
+               auto &out = live_out.find(bb)->second;
+               auto &in = live_in.find(bb)->second;
+               //OUT[B] = U IN[S] U PHI[S,B]
+               for(auto succ: bb->get_succ_basic_blocks())
+               {
+                   const auto &in_succ = live_in.find(succ)->second;
+                   for(auto value : in_succ)
+                       out.insert(value);
+                   const auto &succ_phi_list = live_phi_use.find(succ)->second;
+                   auto it = succ_phi_list.find(bb);
+                   if(it == succ_phi_list.end()) continue;
+                   const auto &succ_phi = it->second;
+                   for(auto value : succ_phi)
+                       out.insert(value);
+               }
+               //IN[B] = USE[B] U (OUT[B] - DEF[B])
+       
+               auto bb_def = live_def.find(bb)->second;
+               auto bb_use = live_use.find(bb)->second;
+               set<Value*> Right_set;
+               // SetDifference(out, bb_def, Right_set);
+       		set_difference( out.begin(), out.end(), bb_def.begin(), bb_def.end(), inserter(Right_set, Right_set.begin()) );//集合做差
+               for(auto value : Right_set)
+               {
+                   auto check = in.insert(value);
+                   if(check.second) is_in_modified = true;
+               }
+               for(auto value : bb_use)
+               {
+                   auto check = in.insert(value);
+                   if(check.second) is_in_modified = true;
+               }
+           }//for(bb)
+       }//while
+       //将phi集合与in集合合并
+       for(auto bb : func_->get_basic_blocks())
+       {
+           auto &in = live_in.find(bb)->second;
+           auto phi_list_map = live_phi_use.find(bb)->second;
+           for(auto &phi_list_it : phi_list_map)
+           {
+               auto &phi_list = phi_list_it.second;
+               for(auto value : phi_list)
+               {
+                   if(dynamic_cast<Constant*>(value)) continue;
+                   in.insert(value);
+               }
+           }
+       }
+       ```
+    
+       实验结果：
+    
+       ![image-20211210193423077](report-phase2.assets\image-20211210193423077.png)
 
 ### 实验总结
 
