@@ -104,7 +104,7 @@ public:
     static bool is_valid_argument_type(Type *ty);
 
     static FunctionType *get(Type *result,
-                             std::vector<Type *> params);
+                             std::vector<Type *> params, Module *m);
 
     unsigned get_num_of_args() const;
 
@@ -129,8 +129,7 @@ public:
 
     StructType(std::string struct_id, std::vector<StructMember> members);
 
-    static StructType *get(std::string struct_id,
-                           std::vector<StructMember> members);
+    static StructType *get(std::string struct_id, Module *m);
     unsigned get_element_index(std::string member_id)
     {
         for (size_t i = 0; i < members.size(); i++)
@@ -141,8 +140,27 @@ public:
         assert("Unrecognized member identifier");
         return 0;
     }
-    std::string print()override{
+    std::string print() override
+    {
         return "%struct." + struct_id;
+    }
+
+    std::string print_definition()
+    {
+        std::string res;
+        res += "%struct." + struct_id;
+        res += "{";
+        if (!members.empty())
+        {
+            res += members.front().type->print();
+            for (auto iter = members.begin() + 1; iter != members.end(); iter++)
+            {
+                res += ", ";
+                res += iter->type->print();
+            }
+        }
+        res += "}\n";
+        return res;
     }
 
 private:

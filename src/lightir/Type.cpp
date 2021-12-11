@@ -209,9 +209,9 @@ bool FunctionType::is_valid_argument_type(Type *ty)
 }
 
 FunctionType *FunctionType::get(Type *result,
-                                std::vector<Type *> params)
+                                std::vector<Type *> params, Module *m)
 {
-    return new FunctionType(result, params);
+    return m->get_function_type(result, params);
 }
 
 unsigned FunctionType::get_num_of_args() const
@@ -231,9 +231,9 @@ Type *FunctionType::get_return_type() const
 
 StructType::StructType(std::string struct_id, std::vector<StructMember> members) : Type(TypeID::StructTyID, nullptr), struct_id(struct_id), members(members) {}
 
-StructType *StructType::get(std::string struct_id, std::vector<StructMember> members)
+StructType *StructType::get(std::string struct_id, Module *m)
 {
-    return new StructType(struct_id, members);
+    return m->get_struct_type(struct_id);
 }
 
 ArrayType::ArrayType(Type *contained, unsigned num_elements)
