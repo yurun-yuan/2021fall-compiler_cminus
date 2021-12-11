@@ -188,13 +188,14 @@ private:
 class PointerType : public Type
 {
 public:
-    PointerType(Type *contained);
+    PointerType(Type *contained, bool is_ref = false);
     Type *get_element_type() const { return contained_; }
 
     static PointerType *get(Type *contained);
 
 private:
     Type *contained_; // The element type of the ptr.
+    bool is_ref;
 };
 
 class FloatType : public Type

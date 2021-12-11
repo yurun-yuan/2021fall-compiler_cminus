@@ -253,8 +253,8 @@ ArrayType *ArrayType::get(Type *contained, unsigned num_elements)
     return contained->get_module()->get_array_type(contained, num_elements);
 }
 
-PointerType::PointerType(Type *contained)
-    : Type(Type::PointerTyID, contained->get_module()), contained_(contained)
+PointerType::PointerType(Type *contained, bool is_ref)
+    : Type(Type::PointerTyID, contained->get_module()), contained_(contained), is_ref(is_ref)
 {
 }
 
