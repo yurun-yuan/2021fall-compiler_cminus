@@ -73,7 +73,7 @@ syntax_tree_node *node(const char *node_name, int children_num, ...);
 //%token <node> EOL
 //%token <node> BLANK
 //%token <node> COMMENT
-%type <node> program  definition-list 	 definition   definitions  var-reference    var-decl-atom	 var-decl-element var-decl-expression  params 	 param-list 	 var-declaration  type-specifier   scalar-type-specifier 	 struct-definition  fun-definition  compound-stmt 	 statements       statement 	 var-definition  expression-stmt  selection-stmt 	 iteration-stmt 	 return-stmt  atom         element      factor 	 multiplicative-expression 	 additive-expression  relational-expression 	 expression 	 relop 	 addop 	 mulop 	 integer 	 float 	 args 	 arg-list 	
+%type <node> program definition-list definition definitions var-reference var-decl-atom var-decl-element var-decl-expression params param-list var-declaration type-specifier scalar-type-specifier struct-definition fun-definition compound-stmt statements statement-list statement var-definition expression-stmt selection-stmt iteration-stmt return-stmt atom element factor multiplicative-expression additive-expression relational-expression expression relop addop mulop integer float string args arg-list 
 
 /* compulsory starting symbol */
 %start program
@@ -143,11 +143,16 @@ type-specifier  :  scalar-type-specifier {$$ = node( "type-specifier", 1, $1);}
 scalar-type-specifier 	: 	INT {$$ = node( "scalar-type-specifier", 1, $1);}
 				        | 	FLOAT { $$ = node( "scalar-type-specifier", 1, $1); }
 				        | 	VOID {$$ = node( "scalar-type-specifier", 1, $1);}
+						|   AUTO {$$ = node( "scalar-type-specifier", 1, $1);}
 				        ;
 
 struct-definition : STRUCT IDENTIFIER LBRACE definitions RBRACE {$$ = node( "struct-definition", 5, $1, $2, $3, $4, $5);}
                   | STRUCT LBRACE definitions RBRACE {$$ = node( "struct-definition", 4, $1, $2, $3, $4);}
 				  ;
+
+var-definition : var-declaration SEMICOLON {$$ = node( "var-definition", 2, $1, $2);}
+               | var-declaration ASSIGN expression SEMICOLON  {$$ = node( "var-definition", 4, $1, $2, $3, $4);}
+			   ;
 
 fun-definition : var-declaration compound-stmt {$$ = node( "fun-definition", 2, $1, $2);}
 			   ;
@@ -158,8 +163,12 @@ fun-definition : var-declaration compound-stmt {$$ = node( "fun-definition", 2, 
 compound-stmt 	: 	LBRACE statements RBRACE {$$ = node( "compound-stmt", 3, $1, $2, $3);}
 				;
 
-statements      :   statements statement {$$ = node( "statements", 2, $1, $2);}
+statements      :   statement-list {$$ = node( "statements", 1, $1);}
                 |   %empty {$$ = node("statements", 0);}
+				;
+
+statement-list  :   statement-list statement {$$ = node( "statement-list", 2, $1, $2);}
+                |   statement                {$$ = node( "statement-list", 1, $1);}
 				;
 
 statement 	: 	expression-stmt {$$ = node( "statement", 1, $1);}
@@ -170,10 +179,6 @@ statement 	: 	expression-stmt {$$ = node( "statement", 1, $1);}
 			|   var-definition {$$ = node( "statement", 1, $1);}
 			;
 
-var-definition : var-declaration SEMICOLON {$$ = node( "var-definition", 2, $1, $2);}
-               | var-declaration ASSIGN expression SEMICOLON  {$$ = node( "var-definition", 4, $1, $2, $3, $4);}
-			   | AUTO var-reference ASSIGN expression SEMICOLON  {$$ = node( "var-definition", 5, $1, $2, $3, $4, $5);}
-			   ;
 
 expression-stmt : 	expression SEMICOLON {$$ = node( "expression-stmt", 2, $1, $2);}
 				| 	SEMICOLON {$$ = node( "expression-stmt", 1, $1);}
@@ -197,8 +202,8 @@ return-stmt : 	RETURN SEMICOLON {$$ = node( "return-stmt", 1, $1);}
 
 atom        :  IDENTIFIER {$$ = node( "atom", 1, $1);}
             |  integer {$$ = node( "atom", 1, $1);}
-			|  FLOAT {$$ = node( "atom", 1, $1);}
-			|  STRING {$$ = node( "atom", 1, $1);}
+			|  float {$$ = node( "atom", 1, $1);}
+			|  string {$$ = node( "atom", 1, $1);}
 			|  LPARENTHESE expression RPARENTHESE {$$ = node( "atom", 3, $1, $2, $3);}
 			;
 
@@ -255,6 +260,8 @@ integer 	: 	INTEGER {$$ = node( "integer", 1, $1);}
 
 float 	: 	FLOATPOINT {$$ = node( "float", 1, $1);}
 		;
+
+string  :   STRING  {$$ = node( "string", 1, $1);}
 
 args 	: 	arg-list {$$ = node( "args", 1, $1);}
         |   %empty {$$ = node("args", 0);}

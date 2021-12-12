@@ -18,6 +18,7 @@ int syntax_tree_add_child(syntax_tree_node * parent, syntax_tree_node * child)
 {
 	if (!parent || !child)	return -1;
 	parent->children[parent->children_num++] = child;
+	child->parent = parent;
 	return parent->children_num;
 }
 

@@ -9,6 +9,30 @@ extern "C"
 #include <memory>
 #include <string>
 #include <optional>
+#include <cstring>
+#include <stack>
+#include <iostream>
+#include <iterator>
+#include <unordered_map>
+
+#define STR_EQ(a, b) (strcmp((a), (b)) == 0)
+#define CHILD(num) ((n)->children[(num)])
+#define CASE0(s) if (STR_EQ((n->name), s))
+#define CASE(s) else if (STR_EQ((n->name), s))
+#define CASE_CHILD0(num, s) if (n->children_num > (num) && STR_EQ((n)->children[(num)]->name, s))
+#define CASE_CHILD(num, s) else if (n->children_num > (num) && STR_EQ((n)->children[(num)]->name, s))
+#define DEFAULT else
+#define SHARED(TYPE, ptr) std::shared_ptr<TYPE>(static_cast<TYPE *>(ptr))
+#define Some make_optional
+#define END return node;
+#define NEW(TYPE) auto node = new TYPE()
+#define EXCEPT_DEFAULT   \
+    else                 \
+    {                    \
+        _AST_NODE_ERROR_ \
+    }
+
+using namespace std;
 
 enum CminusType
 {
@@ -50,30 +74,41 @@ enum MulOp
 };
 
 class AST;
+class ASTVisitor;
 
-struct ASTNode;
+struct ASTNode
+{
+    virtual void accept(ASTVisitor &) = 0;
+};
 
 // Program structure
 struct ASTProgram;
 
 // Definitions & declarations
-struct ASTVarDeclaration;
 
 struct ASTDeclarationExpression : ASTNode
 {
+    virtual void accept(ASTVisitor &) = 0;
+    virtual ~ASTDeclarationExpression() = default;
 };
+struct ASTVarDeclaration;
+struct ASTDeclarationIdentifier;
 struct ASTDeclarationDereference;
 struct ASTDeclarationCall;
 struct ASTDeclarationSubscript;
 
 struct ASTDefinition : ASTNode
 {
+    virtual void accept(ASTVisitor &) = 0;
+    virtual ~ASTDefinition() = default;
 };
 struct ASTFunDefinition;
 struct ASTVarDefinition;
 
 struct ASTTypeSpecifier : ASTNode
 {
+    virtual void accept(ASTVisitor &) = 0;
+    virtual ~ASTTypeSpecifier() = default;
 };
 struct ASTStructSpecification;
 struct ASTNamedType;
@@ -81,9 +116,10 @@ struct ASTNamedType;
 // Statements
 struct ASTStatement : ASTNode
 {
+    virtual void accept(ASTVisitor &) = 0;
+    virtual ~ASTStatement() = default;
 };
 struct ASTCompoundStmt;
-struct ASTParam;
 struct ASTExpressionStmt;
 struct ASTSelectionStmt;
 struct ASTIterationStmt;
@@ -93,6 +129,8 @@ struct ASTReturnStmt;
 // Expression
 struct ASTExpression : ASTNode
 {
+    virtual void accept(ASTVisitor &) = 0;
+    virtual ~ASTExpression() = default;
 };
 struct ASTVar;
 struct ASTNum;
@@ -106,8 +144,6 @@ struct ASTMultiplicativeExpression;
 struct ASTAdditiveExpression;
 struct ASTRelationalExpression;
 struct ASTAssignExpression;
-
-class ASTVisitor;
 
 class AST
 {
@@ -123,13 +159,71 @@ public:
     void run_visitor(ASTVisitor &visitor);
 
 private:
-    ASTNode *transform_node_iter(syntax_tree_node *);
+    ASTNode *transfrom(syntax_tree_node *);
     std::shared_ptr<ASTProgram> root = nullptr;
-};
+    template <typename ASTNodeType, typename Array>
+    void flatten(syntax_tree_node *root, Array &array, int l = 0, int r = 1)
+    {
+        std::stack<syntax_tree_node *> s;
+        while (root->children_num > 1)
+        {
+            s.push(root->children[r]);
+            root = root->children[l];
+        }
 
-struct ASTNode
-{
-    virtual void accept(ASTVisitor &) = 0;
+        if (root->children_num == 0)
+            return;
+
+        s.push(root->children[0]);
+
+        while (!s.empty())
+        {
+            array.push_back(SHARED(ASTNodeType, transfrom(s.top())));
+            s.pop();
+        }
+    }
+    template <typename T>
+    void bi_operation_helper(T &node, syntax_tree_node *n)
+    {
+        node->l_expression = SHARED(ASTExpression, transfrom(CHILD(0)));
+        node->r_expression = SHARED(ASTExpression, transfrom(CHILD(2)));
+    }
+
+    auto add_op(const char *op_name)
+    {
+        if (STR_EQ(op_name, "+"))
+            return OP_PLUS;
+        else if (STR_EQ(op_name, "-"))
+            return OP_MINUS;
+        else
+            throw "Invalid op";
+    }
+    auto mul_op(const char *op_name)
+    {
+        if (STR_EQ(op_name, "*"))
+            return OP_MUL;
+        else if (STR_EQ(op_name, "/"))
+            return OP_DIV;
+        else
+            throw "Invalid op";
+    }
+    auto rel_op(const char *op_name)
+    {
+        if (STR_EQ(op_name, "<="))
+            return OP_LE;
+        else if (STR_EQ(op_name, "<"))
+            return OP_LT;
+        else if (STR_EQ(op_name, ">"))
+            return OP_GT;
+        else if (STR_EQ(op_name, ">="))
+            return OP_GE;
+        else if (STR_EQ(op_name, "=="))
+            return OP_EQ;
+        else if (STR_EQ(op_name, "!="))
+            return OP_NEQ;
+        else
+            throw "Invalid op";
+    }
 };
 
 // Program structure
@@ -147,6 +241,13 @@ struct ASTVarDeclaration : ASTNode
     virtual void accept(ASTVisitor &) override final;
     std::shared_ptr<ASTTypeSpecifier> type_specifier;
     std::shared_ptr<ASTDeclarationExpression> decl_expression;
+};
+
+struct ASTDeclarationIdentifier : ASTDeclarationExpression
+{
+    virtual void accept(ASTVisitor &) override final;
+    bool is_ref = false;
+    std::optional<std::string> id;
 };
 
 struct ASTDeclarationDereference : ASTDeclarationExpression
@@ -179,14 +280,14 @@ struct ASTVarDefinition : ASTDefinition, ASTStatement
 {
     virtual void accept(ASTVisitor &) override final;
     std::shared_ptr<ASTVarDeclaration> var_declaration;
-    std::optional<ASTExpression> init_value;
+    std::optional<std::shared_ptr<ASTExpression>> init_value;
 };
 
 struct ASTStructSpecification : ASTTypeSpecifier
 {
     virtual void accept(ASTVisitor &) override final;
-    std::string struct_id;
-    std::vector<ASTDefinition> definitions;
+    std::optional<std::string> struct_id;
+    std::vector<shared_ptr<ASTDefinition>> definitions;
 };
 
 struct ASTNamedType : ASTTypeSpecifier
@@ -199,14 +300,13 @@ struct ASTNamedType : ASTTypeSpecifier
 struct ASTCompoundStmt : ASTStatement
 {
     virtual void accept(ASTVisitor &) override final;
-    std::vector<std::shared_ptr<ASTVarDefinition>> declarations;
     std::vector<std::shared_ptr<ASTStatement>> statement_list;
 };
 
 struct ASTExpressionStmt : ASTStatement
 {
     virtual void accept(ASTVisitor &) override final;
-    std::shared_ptr<ASTExpression> expression;
+    std::optional<std::shared_ptr<ASTExpression>> expression;
 };
 
 struct ASTSelectionStmt : ASTStatement
@@ -251,7 +351,7 @@ struct ASTCall : ASTExpression
 {
     virtual void accept(ASTVisitor &) override final;
     std::shared_ptr<ASTExpression> caller;
-    std ::vector<std::shared_ptr<ASTVarDeclaration>> params
+    std ::vector<std::shared_ptr<ASTExpression>> args;
 };
 struct ASTSubscript : ASTExpression
 {
@@ -309,12 +409,12 @@ struct ASTAssignExpression : ASTExpression
     std::shared_ptr<ASTExpression> r_expression;
 };
 
-
 class ASTVisitor
 {
 public:
     virtual void visit(ASTProgram &) = 0;
-    virtual void visit(ASTDeclarationExpression &) = 0;
+    virtual void visit(ASTVarDeclaration &) = 0;
+    virtual void visit(ASTDeclarationIdentifier &) = 0;
     virtual void visit(ASTDeclarationDereference &) = 0;
     virtual void visit(ASTDeclarationCall &) = 0;
     virtual void visit(ASTDeclarationSubscript &) = 0;
@@ -323,7 +423,6 @@ public:
     virtual void visit(ASTStructSpecification &) = 0;
     virtual void visit(ASTNamedType &) = 0;
     virtual void visit(ASTCompoundStmt &) = 0;
-    virtual void visit(ASTParam &) = 0;
     virtual void visit(ASTExpressionStmt &) = 0;
     virtual void visit(ASTSelectionStmt &) = 0;
     virtual void visit(ASTIterationStmt &) = 0;
