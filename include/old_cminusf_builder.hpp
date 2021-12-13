@@ -13,7 +13,6 @@
 #include <utility>
 #include <functional>
 #include <algorithm>
-#include <optional>
 
 // use these macros to get constant value
 
@@ -37,26 +36,32 @@
 
 #define INIT(Ty) ConstantZero::get((Ty), MOD)
 
-struct ValueInfo
-{
-    Value *value;
-    bool is_lvalue = false;
-    struct
-    {
-        bool is_member = false;
-        StructType *belonged_struct;
-    } struct_member;
-};
-
 class Scope
 {
 public:
-    void enter() { inner.push_back({}); }
-    void exit() { inner.pop_back(); }
-    bool in_global() { return inner.size() == 1; }
+    // enter a new scope
+    void enter()
+    {
+        inner.push_back({});
+    }
+
+    // exit a scope
+    void exit()
+    {
+        inner.pop_back();
+    }
+
+    bool in_global()
+    {
+        return inner.size() == 1;
+    }
+
+    // push a name to scope
+    // return true if successful
+    // return false if this name already exits
     bool push(std::string name, Value *val)
     {
-        auto result = inner.back().insert({name, val});
+        auto result = inner[inner.size() - 1].insert({name, val});
         return result.second;
     }
 
@@ -66,28 +71,17 @@ public:
         {
             auto iter = s->find(name);
             if (iter != s->end())
+            {
                 return iter->second;
+            }
         }
+
         return nullptr;
     }
 
 private:
     std::vector<std::map<std::string, Value *>> inner;
 };
-
-template <class T>
-T pop(stack<T> &s)
-{
-    auto val = s.top();
-    s.pop();
-    return val;
-}
-
-template <class T>
-void push(stack<T> &s)
-{
-    s.push(T{});
-}
 
 class CminusfBuilder : public ASTVisitor
 {
@@ -100,7 +94,7 @@ public:
         auto TyInt32 = Type::get_int32_type(module.get());
         auto TyFloat = Type::get_float_type(module.get());
 
-        auto input_type = FunctionType::get(TyInt32, {}, MOD);
+        auto input_type = FunctionType::get(TyInt32, {});
         auto input_fun =
             Function::create(
                 input_type,
@@ -109,7 +103,7 @@ public:
 
         std::vector<Type *> output_params;
         output_params.push_back(TyInt32);
-        auto output_type = FunctionType::get(TyVoid, output_params,MOD);
+        auto output_type = FunctionType::get(TyVoid, output_params);
         auto output_fun =
             Function::create(
                 output_type,
@@ -118,14 +112,14 @@ public:
 
         std::vector<Type *> output_float_params;
         output_float_params.push_back(TyFloat);
-        auto output_float_type = FunctionType::get(TyVoid, output_float_params, MOD);
+        auto output_float_type = FunctionType::get(TyVoid, output_float_params);
         auto output_float_fun =
             Function::create(
                 output_float_type,
                 "outputFloat",
                 module.get());
 
-        auto neg_idx_except_type = FunctionType::get(TyVoid, {}, MOD);
+        auto neg_idx_except_type = FunctionType::get(TyVoid, {});
         auto neg_idx_except_fun =
             Function::create(
                 neg_idx_except_type,
@@ -219,38 +213,25 @@ private:
     using MulFuncType = std::function<Value *(Value *left, Value *right)>;
 
     virtual void visit(ASTProgram &) override final;
-    virtual void visit(ASTVarDeclaration &) override final;
-    virtual void visit(ASTDeclarationIdentifier &) override final;
-    virtual void visit(ASTDeclarationDereference &) override final;
-    virtual void visit(ASTDeclarationCall &) override final;
-    virtual void visit(ASTDeclarationSubscript &) override final;
-    virtual void visit(ASTFunDefinition &) override final;
+    virtual void visit(ASTNum &) override final;
     virtual void visit(ASTVarDefinition &) override final;
-    virtual void visit(ASTStructSpecification &) override final;
-    virtual void visit(ASTNamedType &) override final;
+    virtual void visit(ASTFunDefinition &) override final;
+    virtual void visit(ASTParam &) override final;
     virtual void visit(ASTCompoundStmt &) override final;
     virtual void visit(ASTExpressionStmt &) override final;
     virtual void visit(ASTSelectionStmt &) override final;
     virtual void visit(ASTIterationStmt &) override final;
     virtual void visit(ASTReturnStmt &) override final;
-    virtual void visit(ASTVar &) override final;
-    virtual void visit(ASTNum &) override final;
-    virtual void visit(ASTCall &) override final;
-    virtual void visit(ASTSubscript &) override final;
-    virtual void visit(ASTMemberAccess &) override final;
-    virtual void visit(ASTUnaryAddExpression &) override final;
-    virtual void visit(ASTDereference &) override final;
-    virtual void visit(ASTAddressof &) override final;
-    virtual void visit(ASTMultiplicativeExpression &) override final;
-    virtual void visit(ASTAdditiveExpression &) override final;
-    virtual void visit(ASTRelationalExpression &) override final;
     virtual void visit(ASTAssignExpression &) override final;
+    virtual void visit(ASTSimpleExpression &) override final;
+    virtual void visit(ASTAdditiveExpression &) override final;
+    virtual void visit(ASTVar &) override final;
+    virtual void visit(ASTMultiplicativeExpression &) override final;
+    virtual void visit(ASTCall &) override final;
 
     IRBuilder *builder;
     Scope scope;
     std::unique_ptr<Module> module;
-
-    // ======================================================================
 
     // See `group discussion.md` for more info
     std::map<Type *, int> typeOrderRank;
@@ -259,57 +240,17 @@ private:
     std::map<std::pair<Type *, enum MulOp>, MulFuncType> mulFuncTable;
     std::map<std::pair<Type *, Type *>, ConvertorFuncType> compulsiveTypeConvertTable;
 
-    // ======================================================================
-    /**
-     * @brief Pass values between `visit`s
-     * 
-     */
-
+    Function *lastEnteredFun = nullptr;
     bool compound_stmt_is_func_body = true;
 
     bool isTerminalStmt = false;
+    std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
+    std::list<Argument *>::iterator curArg;
 
     // Use stack to evaluate expressions
-    std::stack<ValueInfo> cal_stack;
+    std::stack<Value *> cal_stack;
 
-    struct Variable
-    {
-        Type *type;
-        optional<string> id;
-    };
-    // pushed by ASTVarDeclaration, popped by consumer
-    stack<Variable> var_decl_result;
-
-    struct TypeSpecifierResult
-    {
-        Type *type;
-    };
-    // pushed by type specifiers, popped by consumer
-    stack<TypeSpecifierResult> type_specifier_res;
-    vector<optional<string>> latest_func_def_param_names;
-
-    // Struct scope, for member functions
-    vector<StructType *> struct_nest;
-    std::string get_struct_id_prefix(){
-        std::string prefix;
-        for (auto &&s : struct_nest)
-            prefix += s->print() + ".";
-        return prefix;
-    }
-
-    // Function scope
-    stack<Function *> function_nest;
-
-    // ======================================================================
-
-    /**
-     * @brief Naming counters
-     * 
-     */
-    size_t anonymous_struct_name_cnt = 0;
     size_t label_name_cnt = 0;
-
-    // ======================================================================
 
     /**
      * @brief Convert `enum CminusType` to `Type *`
@@ -410,28 +351,38 @@ private:
 
     BasicBlock *newBasicBlock()
     {
-        return BasicBlock::create(MOD, std::to_string(label_name_cnt++), function_nest.top());
+        return BasicBlock::create(MOD, std::to_string(label_name_cnt++), lastEnteredFun);
     }
 
-    // Value *get_arr_elem_addr(IRBuilder *builder, Scope &scope, Value *arr, ASTExpression &offset)
-    // {
-    //     offset.accept(*this);
-    //     auto index = cal_stack.top();
-    //     cal_stack.pop();
-    //     compulsiveTypeConvert(index, GET_INT32);
+    auto get_valid_param_ty(IRBuilder *builder, ASTParam &param)
+    {
+        Type *ty;
+        if (param.isarray)
+            ty = PointerType::get(CminusTypeConvertor(param.type));
+        else
+            ty = CminusTypeConvertor(param.type);
+        return ty;
+    }
 
-    //     // Examine wether the index is negative
-    //     auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
-    //     auto negBB = newBasicBlock();
-    //     auto posBB = newBasicBlock();
-    //     builder->create_cond_br(isIdxNeg, negBB, posBB);
-    //     builder->set_insert_point(negBB);
-    //     auto negExcept = scope.find("neg_idx_except");
-    //     builder->create_call(negExcept, {});
-    //     builder->create_br(posBB);
-    //     builder->set_insert_point(posBB);
+    Value *get_arr_elem_addr(IRBuilder *builder, Scope &scope, Value *arr, ASTExpression &offset)
+    {
+        offset.accept(*this);
+        auto index = cal_stack.top();
+        cal_stack.pop();
+        compulsiveTypeConvert(index, GET_INT32);
 
-    //     return getArrOrPtrAddr(arr, index);
-    // }
+        // Examine wether the index is negative
+        auto isIdxNeg = builder->create_icmp_lt(index, CONST_INT(0));
+        auto negBB = newBasicBlock();
+        auto posBB = newBasicBlock();
+        builder->create_cond_br(isIdxNeg, negBB, posBB);
+        builder->set_insert_point(negBB);
+        auto negExcept = scope.find("neg_idx_except");
+        builder->create_call(negExcept, {});
+        builder->create_br(posBB);
+        builder->set_insert_point(posBB);
+
+        return getArrOrPtrAddr(arr, index);
+    }
 };
 #endif

@@ -149,7 +149,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         CASE_CHILD0(2, "params")
         {
             NEW(ASTDeclarationCall);
-            node->caller = SHARED(ASTDeclarationExpression, transfrom(CHILD(0)));
+            node->callee = SHARED(ASTDeclarationExpression, transfrom(CHILD(0)));
             auto params = CHILD(2);
             if (params->children_num != 0 && !STR_EQ(params->children[0]->name, "void"))
             {
@@ -355,7 +355,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         CASE_CHILD0(2, "args")
         {
             NEW(ASTCall);
-            node->caller = SHARED(ASTExpression, transfrom(CHILD(0)));
+            node->callee = SHARED(ASTExpression, transfrom(CHILD(0)));
             auto args = CHILD(2);
             if (args->children_num != 0)
             {

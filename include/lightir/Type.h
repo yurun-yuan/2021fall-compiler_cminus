@@ -18,14 +18,15 @@ class Type
 public:
     enum TypeID
     {
-        VoidTyID,     // Void
-        LabelTyID,    // Labels, e.g., BasicBlock
-        IntegerTyID,  // Integers, include 32 bits and 1 bit
-        FunctionTyID, // Functions
-        ArrayTyID,    // Arrays
-        PointerTyID,  // Pointer
-        FloatTyID,    // float
-        StructTyID    // struct
+        VoidTyID,           // Void
+        LabelTyID,          // Labels, e.g., BasicBlock
+        IntegerTyID,        // Integers, include 32 bits and 1 bit
+        FunctionTyID,       // Functions
+        ArrayTyID,          // Arrays
+        PointerTyID,        // Pointer
+        FloatTyID,          // float
+        StructTyID,         // struct
+        ReferenceTyID       // Reference
     };
 
     explicit Type(TypeID tid, Module *m);
@@ -46,6 +47,8 @@ public:
     bool is_pointer_type() const { return get_type_id() == PointerTyID; }
 
     bool is_float_type() const { return get_type_id() == FloatTyID; }
+
+    bool is_reference() const { return get_type_id() == ReferenceTyID; }
 
     static bool is_eq_type(Type *ty1, Type *ty2);
 
@@ -111,6 +114,7 @@ public:
     Type *get_param_type(unsigned i) const;
     std::vector<Type *>::iterator param_begin() { return args_.begin(); }
     std::vector<Type *>::iterator param_end() { return args_.end(); }
+    const std::vector<Type *> &get_params() { return args_; }
     Type *get_return_type() const;
 
 private:
@@ -188,14 +192,25 @@ private:
 class PointerType : public Type
 {
 public:
-    PointerType(Type *contained, bool is_ref = false);
+    PointerType(Type *contained);
     Type *get_element_type() const { return contained_; }
 
     static PointerType *get(Type *contained);
 
 private:
     Type *contained_; // The element type of the ptr.
-    bool is_ref;
+};
+
+class ReferenceType : public Type
+{
+public:
+    PointerType *type;
+    ReferenceType(PointerType *type) : type(type), Type(Type::ReferenceTyID, type->get_module()) {}
+    static ReferenceType *get_reference_type(Type *contained)
+    {
+        // TODO Memory management
+        return new ReferenceType(PointerType::get(contained));
+    }
 };
 
 class FloatType : public Type

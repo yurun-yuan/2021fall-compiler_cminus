@@ -259,7 +259,7 @@ struct ASTDeclarationDereference : ASTDeclarationExpression
 struct ASTDeclarationCall : ASTDeclarationExpression
 {
     virtual void accept(ASTVisitor &) override final;
-    std::shared_ptr<ASTDeclarationExpression> caller;
+    std::shared_ptr<ASTDeclarationExpression> callee;
     std ::vector<std::shared_ptr<ASTVarDeclaration>> params;
 };
 struct ASTDeclarationSubscript : ASTDeclarationExpression
@@ -350,7 +350,7 @@ struct ASTNum : ASTExpression
 struct ASTCall : ASTExpression
 {
     virtual void accept(ASTVisitor &) override final;
-    std::shared_ptr<ASTExpression> caller;
+    std::shared_ptr<ASTExpression> callee;
     std ::vector<std::shared_ptr<ASTExpression>> args;
 };
 struct ASTSubscript : ASTExpression

@@ -71,15 +71,15 @@
 
   <paragraph|Program structure>
 
-  <math|<tabular|<tformat|<table|<row|<cell|<text|program>>|<cell|\<rightarrow\>>|<cell|<text|declaration-list>>>|<row|<cell|<text|declaration-list>>|<cell|\<rightarrow\>>|<cell|<text|declaration-list>
-  <text|declaration>\|<text|declaration>>>|<row|<cell|<text|declaration>>|<cell|\<rightarrow\>>|<cell|<text|var-declaration>\|<text|fun-declaration>>>>>>>
+  <math|<tabular|<tformat|<table|<row|<cell|<text|program>>|<cell|\<rightarrow\>>|<cell|<text|definition-list>>>|<row|<cell|<text|definition-list>>|<cell|\<rightarrow\>>|<cell|<text|definition-list>
+  <text|definition>\|<text|definition>>>|<row|<cell|<text|definition>>|<cell|\<rightarrow\>>|<cell|<text|var-definition>\|<text|fun-definition>>>>>>>
 
-  <paragraph|Declarations>
+  <paragraph|Definitions and declarations>
 
   Used in
 
   <\enumerate>
-    <item>Variable declarations
+    <item>Variable definition
 
     <item>Argument declarations
 
@@ -90,38 +90,41 @@
   possible. Please determine whether ID is null during semantic analysis.\ 
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|varDec>|<cell|\<rightarrow\>>|<cell|TypeSpecifier
-    declExpr;>>|<row|<cell|decl atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|ref>|<cell|&ID>>|<row|<cell|>|<cell|>|<cell|<around*|(|decl
-    expression|)>>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|>|<cell|>|<cell|&>>|<row|<cell|decl
-    element>|<cell|\<rightarrow\>>|<cell|decl
+    <tformat|<table|<row|<cell|ref>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|&ID>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|>|<cell|>|<cell|&>>|<row|<cell|decl
+    atom>|<cell|\<rightarrow\>>|<cell|ref>>|<row|<cell|>|<cell|>|<cell|<around*|(|decl
+    expression|)>>>|<row|<cell|decl element>|<cell|\<rightarrow\>>|<cell|decl
     element<around*|(|params|)>>>|<row|<cell|>|<cell|>|<cell|decl
     element<around*|[|INTEGER|]>>>|<row|<cell|>|<cell|>|<cell|decl
-    element<around*|[||]>>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|factor>|<cell|\<rightarrow\>>|<cell|\<ast\>factor>>|<row|<cell|>|<cell|>|<cell|decl
-    element>>|<row|<cell|declExpr>|<cell|\<rightarrow\>>|<cell|factor>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|params>|<cell|\<rightarrow\>>|<cell|param
+    element<around*|[||]>>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|expression>|<cell|\<rightarrow\>>|<cell|\<ast\>expression>>|<row|<cell|>|<cell|>|<cell|decl
+    element>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|params>|<cell|\<rightarrow\>>|<cell|param
     list>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|param
     list>|<cell|\<rightarrow\>>|<cell|param
-    list,varDecl>>|<row|<cell|>|<cell|>|<cell|varDecl>>|<row|<cell|funcDecl>|<cell|\<rightarrow\>>|<cell|varDec
-    ID <around*|(|params|)> compoundStmt>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|TypeSpecifier>|<cell|\<rightarrow\>>|<cell|ScalarType>>|<row|<cell|>|<cell|>|<cell|StructSpecification>>|<row|<cell|>|<cell|>|<cell|ID>>|<row|<cell|Scalar
-    Type>|<cell|\<rightarrow\>>|<cell|int>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|Struct>|<cell|\<rightarrow\>>|<cell|struct
-    ID<around*|{|declarations|}>>>|<row|<cell|>|<cell|>|<cell|struct
-    <around*|{|declarations|}>>>|<row|<cell|declaraions>|<cell|\<rightarrow\>>|<cell|declarationList>>|<row|<cell|>|<cell|>|<cell|empty>>>>
+    list,varDecl>>|<row|<cell|>|<cell|>|<cell|varDecl>>|<row|<cell|funcDefinition>|<cell|\<rightarrow\>>|<cell|varDec
+    compoundStmt>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|TypeSpecifier>|<cell|\<rightarrow\>>|<cell|ScalarType>>|<row|<cell|>|<cell|>|<cell|StructSpecification>>|<row|<cell|>|<cell|>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|struct
+    ID>>|<row|<cell|Scalar Type>|<cell|\<rightarrow\>>|<cell|int>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|StructSpecification>|<cell|\<rightarrow\>>|<cell|struct
+    ID<around*|{|definitions|}>>>|<row|<cell|>|<cell|>|<cell|struct
+    <around*|{|definitions|}>>>|<row|<cell|definitions>|<cell|\<rightarrow\>>|<cell|definitionList>>|<row|<cell|>|<cell|>|<cell|empty>>>>
   </eqnarray*>
 
   <paragraph|Statement>
 
   <math|<tabular|<tformat|<table|<row|<cell|<text|compound-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|{>|\<bar\>>
-  <text|statements><wide*|<with|font-series|bold|}>|\<bar\>>>>|<row|<cell|statements>|<cell|\<rightarrow\>>|<cell|statements
-  statement>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|<text|statement>>|<cell|\<rightarrow\>>|<cell|expression-stmt>>|<row|<cell|>|<cell|\|>|<cell|<text|compound-stmt>>>|<row|<cell|>|<cell|\|>|<cell|<text|selection-stmt>>>|<row|<cell|>|<cell|\|>|<cell|<text|iteration-stmt>>>|<row|<cell|>|<cell|\|>|<cell|<text|return-stmt>>>|<row|<cell|>|<cell|>|<cell|varDecl>>|<row|<cell|<text|expression-stmt>>|<cell|\<rightarrow\>>|<cell|<text|expression><wide*|<with|font-series|bold|;>|\<bar\>>\|<wide*|<with|font-series|bold|;>|\<bar\>>>>|<row|<cell|<text|selection-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|if>|\<bar\>>
+  <text|statements><wide*|<with|font-series|bold|}>|\<bar\>>>|<cell|>>|<row|<cell|statements>|<cell|\<rightarrow\>>|<cell|statements
+  statement>|<cell|>>|<row|<cell|>|<cell|>|<cell|empty>|<cell|>>|<row|<cell|<text|statement>>|<cell|\<rightarrow\>>|<cell|expression-stmt>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|compound-stmt>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|selection-stmt>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|iteration-stmt>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|return-stmt>>|<cell|>>|<row|<cell|>|<cell|>|<cell|varDefinition>|<cell|>>|<row|<cell|varDec>|<cell|\<rightarrow\>>|<cell|TypeSpecifier
+  declExpr>|<cell|int a>>|<row|<cell|varDefinition>|<cell|\<rightarrow\>>|<cell|varDecl=expression;>|<cell|int
+  a=1;>>|<row|<cell|>|<cell|>|<cell|auto ref=expression;>|<cell|auto
+  a=1;>>|<row|<cell|>|<cell|>|<cell|varDecl;>|<cell|int
+  a;>>|<row|<cell|<text|expression-stmt>>|<cell|\<rightarrow\>>|<cell|<text|expression><wide*|<with|font-series|bold|;>|\<bar\>>\|<wide*|<with|font-series|bold|;>|\<bar\>>>|<cell|>>|<row|<cell|<text|selection-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|if>|\<bar\>>
   <wide*|<with|font-series|bold|(>|\<bar\>>
-  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>><text|statement>>>|<row|<cell|>|<cell|\|>|<cell|<wide*|<with|font-series|bold|if>|\<bar\>>
+  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>><text|statement>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<wide*|<with|font-series|bold|if>|\<bar\>>
   <wide*|<with|font-series|bold|(>|\<bar\>>
   <text|expression><wide*|<with|font-series|bold|)>|\<bar\>> <text|statement>
   <wide*|<with|font-series|bold|else>|\<bar\>>
-  <text|statement>>>|<row|<cell|<text|iteration-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|while>|\<bar\>>
+  <text|statement>>|<cell|>>|<row|<cell|<text|iteration-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|while>|\<bar\>>
   <wide*|<with|font-series|bold|(>|\<bar\>>
-  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>><text|statement>>>|<row|<cell|<text|return-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|return>|\<bar\>>
+  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>><text|statement>>|<cell|>>|<row|<cell|<text|return-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|return>|\<bar\>>
   <wide*|<with|font-series|bold|;>|\<bar\>>\|<wide*|<with|font-series|bold|return>|\<bar\>>
-  <text|expression><wide*|<with|font-series|bold|;>|\<bar\>>>>>>>>
+  <text|expression><wide*|<with|font-series|bold|;>|\<bar\>>>|<cell|>>>>>>
 
   <paragraph|Expressions>
 
@@ -170,12 +173,12 @@
   R-value:
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|integer>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|string>>|<row|<cell|>|<cell|>|<cell|<around*|(|expression|)>>>|<row|<cell|element>|<cell|\<rightarrow\>>|<cell|element<around*|(|argList|)>>>|<row|<cell|>|<cell|>|<cell|element<around*|[|expression|]>>>|<row|<cell|>|<cell|>|<cell|element.id>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|factor>|<cell|\<rightarrow\>>|<cell|UnaryAddOp
+    <tformat|<table|<row|<cell|atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|integer>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|string>>|<row|<cell|>|<cell|>|<cell|<around*|(|expression|)>>>|<row|<cell|element>|<cell|\<rightarrow\>>|<cell|element<around*|(|args|)>>>|<row|<cell|>|<cell|>|<cell|element<around*|[|expression|]>>>|<row|<cell|>|<cell|>|<cell|element.id>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|factor>|<cell|\<rightarrow\>>|<cell|UnaryAddOp
     factor>>|<row|<cell|>|<cell|>|<cell|\<ast\>factor>>|<row|<cell|>|<cell|>|<cell|&factor>>|<row|<cell|>|<cell|>|<cell|element>>|<row|<cell|mulExpr>|<cell|\<rightarrow\>>|<cell|mulExpr
     mulOp factor>>|<row|<cell|>|<cell|>|<cell|factor>>|<row|<cell|addExpr>|<cell|\<rightarrow\>>|<cell|addExpr
     addOp mulExpr>>|<row|<cell|>|<cell|>|<cell|mulExpr>>|<row|<cell|orderExpr>|<cell|\<rightarrow\>>|<cell|orderExpr
-    orderOp addExpr>>|<row|<cell|>|<cell|>|<cell|addExpr>>|<row|<cell|EqExpr>|<cell|\<rightarrow\>>|<cell|EqExpr
-    eqOp orderExpr>>|<row|<cell|>|<cell|>|<cell|orderExpr>>|<row|<cell|assign>|<cell|\<rightarrow\>>|<cell|EqExpr=assign>>|<row|<cell|>|<cell|>|<cell|EqExpr>>|<row|<cell|Expression>|<cell|\<rightarrow\>>|<cell|assign,Expression>>|<row|<cell|>|<cell|>|<cell|assign>>>>
+    orderOp addExpr>>|<row|<cell|>|<cell|>|<cell|addExpr>>|<row|<cell|//EqExpr>|<cell|\<rightarrow\>>|<cell|EqExpr
+    eqOp orderExpr>>|<row|<cell|//>|<cell|>|<cell|orderExpr>>|<row|<cell|assign>|<cell|\<rightarrow\>>|<cell|EqExpr=assign>>|<row|<cell|>|<cell|>|<cell|EqExpr>>|<row|<cell|Expression>|<cell|\<rightarrow\>>|<cell|//assign,Expression>>|<row|<cell|>|<cell|>|<cell|assign>>>>
   </eqnarray*>
 
   L-value: (Consider merging with R-value. Detect L-value/R-value during
@@ -188,6 +191,216 @@
     element>>|<row|<cell|>|<cell|>|<cell|L
     element>>|<row|<cell|assign>|<cell|\<rightarrow\>>|<cell|L expr=expr>>>>
   </eqnarray*>
+
+  <subsubsection|AST>
+
+  <paragraph|Program structure>
+
+  <math|<tabular|<tformat|<table|<row|<cell|<text|program>>|<cell|\<rightarrow\>>|<cell|vec<around*|(|definition|)>>>>>>>
+
+  <paragraph|Definitions and declarations>
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|ref>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|&ID>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|>|<cell|>|<cell|&>>|<row|<cell|decl
+    atom>|<cell|\<rightarrow\>>|<cell|ref>>|<row|<cell|>|<cell|>|<cell|<around*|(|decl
+    expression|)>>>|<row|<cell|decl element>|<cell|\<rightarrow\>>|<cell|decl
+    element<around*|(|params|)>>>|<row|<cell|>|<cell|>|<cell|decl
+    element<around*|[|INTEGER|]>>>|<row|<cell|>|<cell|>|<cell|decl
+    element<around*|[||]>>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|expression>|<cell|\<rightarrow\>>|<cell|\<ast\>expression>>|<row|<cell|>|<cell|>|<cell|decl
+    element>>>>
+  </eqnarray*>
+
+  <\enumerate>
+    <item>decl expression
+
+    <\description>
+      <item*|identifier>
+    </description>
+
+    <\description>
+      <item*|decl dereference>
+
+      expression
+    </description>
+
+    <\description>
+      <item*|declcall>
+
+      expression
+
+      params
+
+      <item*|subscript>
+
+      expression
+
+      optional\<less\>int\<gtr\>
+    </description>
+
+    <item>var declaration
+  </enumerate>
+
+  \;
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|params>|<cell|\<rightarrow\>>|<cell|param
+    list>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|param
+    list>|<cell|\<rightarrow\>>|<cell|param
+    list,varDecl>>|<row|<cell|>|<cell|>|<cell|varDecl>>|<row|<cell|funcDefinition>|<cell|\<rightarrow\>>|<cell|varDec
+    compoundStmt>>>>
+  </eqnarray*>
+
+  <\enumerate>
+    <item>Definition
+
+    <\description>
+      <item*|function definition>
+
+      var-decl
+
+      compoundStmt
+    </description>
+  </enumerate>
+
+  \;
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|TypeSpecifier>|<cell|\<rightarrow\>>|<cell|ScalarType>>|<row|<cell|>|<cell|>|<cell|StructSpecification>>|<row|<cell|>|<cell|>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|struct
+    ID>>|<row|<cell|StructSpecification>|<cell|\<rightarrow\>>|<cell|struct
+    ID<around*|{|definitions|}>>>|<row|<cell|>|<cell|>|<cell|struct
+    <around*|{|definitions|}>>>|<row|<cell|Scalar
+    Type>|<cell|\<rightarrow\>>|<cell|int>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|auto>>>>
+  </eqnarray*>
+
+  <\enumerate>
+    <item>TypeSpecifier
+
+    <\description>
+      <item*|StructSpecification>
+
+      string id,vec\<less\>definition\<gtr\>
+
+      <item*|NamedType>
+
+      string
+    </description>
+  </enumerate>
+
+  \;
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|definitions>|<cell|\<rightarrow\>>|<cell|definitionList>>|<row|<cell|>|<cell|>|<cell|empty>>>>
+  </eqnarray*>
+
+  <\enumerate>
+    <item>Definition
+
+    <\description>
+      <item*|varDef>
+
+      var_decl,optional\<less\>expression\<gtr\>
+    </description>
+  </enumerate>
+
+  <paragraph|Statement>
+
+  <math|<tabular|<tformat|<table|<row|<cell|<text|compound-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|{>|\<bar\>>
+  <text|statements><wide*|<with|font-series|bold|}>|\<bar\>>>|<cell|>>|<row|<cell|statements>|<cell|\<rightarrow\>>|<cell|statements
+  statement>|<cell|>>|<row|<cell|>|<cell|>|<cell|empty>|<cell|>>|<row|<cell|<text|statement>>|<cell|\<rightarrow\>>|<cell|expression-stmt>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|compound-stmt>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|selection-stmt>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|iteration-stmt>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<text|return-stmt>>|<cell|>>|<row|<cell|>|<cell|>|<cell|varDefinition>|<cell|>>|<row|<cell|varDec>|<cell|\<rightarrow\>>|<cell|TypeSpecifier
+  declExpr>|<cell|int a>>|<row|<cell|varDefinition>|<cell|\<rightarrow\>>|<cell|varDecl=expression;>|<cell|int
+  a=1;>>|<row|<cell|>|<cell|>|<cell|varDecl;>|<cell|int
+  a;>>|<row|<cell|<text|expression-stmt>>|<cell|\<rightarrow\>>|<cell|<text|expression><wide*|<with|font-series|bold|;>|\<bar\>>\|<wide*|<with|font-series|bold|;>|\<bar\>>>|<cell|>>|<row|<cell|<text|selection-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|if>|\<bar\>>
+  <wide*|<with|font-series|bold|(>|\<bar\>>
+  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>><text|statement>>|<cell|>>|<row|<cell|>|<cell|\|>|<cell|<wide*|<with|font-series|bold|if>|\<bar\>>
+  <wide*|<with|font-series|bold|(>|\<bar\>>
+  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>> <text|statement>
+  <wide*|<with|font-series|bold|else>|\<bar\>>
+  <text|statement>>|<cell|>>|<row|<cell|<text|iteration-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|while>|\<bar\>>
+  <wide*|<with|font-series|bold|(>|\<bar\>>
+  <text|expression><wide*|<with|font-series|bold|)>|\<bar\>><text|statement>>|<cell|>>|<row|<cell|<text|return-stmt>>|<cell|\<rightarrow\>>|<cell|<wide*|<with|font-series|bold|return>|\<bar\>>
+  <wide*|<with|font-series|bold|;>|\<bar\>>\|<wide*|<with|font-series|bold|return>|\<bar\>>
+  <text|expression><wide*|<with|font-series|bold|;>|\<bar\>>>|<cell|>>>>>>
+
+  <paragraph|Expressions>
+
+  R-value:
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|integer>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|string>>|<row|<cell|>|<cell|>|<cell|<around*|(|expression|)>>>|<row|<cell|element>|<cell|\<rightarrow\>>|<cell|element<around*|(|args|)>>>|<row|<cell|>|<cell|>|<cell|element<around*|[|expression|]>>>|<row|<cell|>|<cell|>|<cell|element.id>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|factor>|<cell|\<rightarrow\>>|<cell|UnaryAddOp
+    factor>>|<row|<cell|>|<cell|>|<cell|\<ast\>factor>>|<row|<cell|>|<cell|>|<cell|&factor>>|<row|<cell|>|<cell|>|<cell|element>>|<row|<cell|mulExpr>|<cell|\<rightarrow\>>|<cell|mulExpr
+    mulOp factor>>|<row|<cell|>|<cell|>|<cell|factor>>|<row|<cell|addExpr>|<cell|\<rightarrow\>>|<cell|addExpr
+    addOp mulExpr>>|<row|<cell|>|<cell|>|<cell|mulExpr>>|<row|<cell|orderExpr>|<cell|\<rightarrow\>>|<cell|orderExpr
+    orderOp addExpr>>|<row|<cell|>|<cell|>|<cell|addExpr>>|<row|<cell|//EqExpr>|<cell|\<rightarrow\>>|<cell|EqExpr
+    eqOp orderExpr>>|<row|<cell|//>|<cell|>|<cell|orderExpr>>|<row|<cell|assign>|<cell|\<rightarrow\>>|<cell|EqExpr=assign>>|<row|<cell|>|<cell|>|<cell|EqExpr>>|<row|<cell|Expression>|<cell|\<rightarrow\>>|<cell|//assign,Expression>>|<row|<cell|>|<cell|>|<cell|assign>>>>
+  </eqnarray*>
+
+  <\enumerate>
+    <item>expression
+
+    <\description>
+      <item*|var>
+
+      id
+
+      <item*|num>
+
+      flag, union
+
+      <item*|call>
+
+      expression
+
+      params
+
+      <item*|subscript>
+
+      expression
+
+      expression
+
+      <item*|MemberAccess>
+
+      expression, member id
+
+      <item*|UnaryAddExpr>
+
+      op, expression
+
+      <item*|dereference>
+
+      expression
+
+      <item*|addr-of>
+
+      expression
+
+      <item*|mulExpr>
+
+      op, expr, expr
+
+      <item*|addExpr>
+
+      op, expr, expr
+
+      <item*|relationalExpr>
+
+      op, expr, expr
+
+      <item*|assignExpr>
+
+      l-expr,r-expr
+    </description>
+  </enumerate>
+
+  <section|Problems>
+
+  <\enumerate>
+    <item>Function with L-reference return type.\ 
+
+    e.g. <verbatim|int& function()> may be recognized as <verbatim|int
+    (&function)()>, which is a reference to a function with <verbatim|int>
+    return type, instead of <verbatim|(int&) function()>.\ 
+  </enumerate>
 </body>
 
 <initial|<\collection>
@@ -197,7 +410,12 @@
   <\collection>
     <associate|auto-1|<tuple|1|?>>
     <associate|auto-10|<tuple|2.2.1.4|?>>
-    <associate|auto-11|<tuple|2.2.1.5|?>>
+    <associate|auto-11|<tuple|2.2.2|?>>
+    <associate|auto-12|<tuple|2.2.2.1|?>>
+    <associate|auto-13|<tuple|2.2.2.2|?>>
+    <associate|auto-14|<tuple|2.2.2.3|?>>
+    <associate|auto-15|<tuple|2.2.2.4|?>>
+    <associate|auto-16|<tuple|3|?>>
     <associate|auto-2|<tuple|2|?>>
     <associate|auto-3|<tuple|2.1|?>>
     <associate|auto-4|<tuple|2.1.1|?>>
