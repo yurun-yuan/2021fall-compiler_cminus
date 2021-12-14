@@ -106,7 +106,7 @@ void Module::add_struct(std::string struct_id, std::vector<StructType::StructMem
         throw "Duplicate definition of struct with the same name";
     else
     {
-        auto new_struct_type = new StructType(struct_id, members);
+        auto new_struct_type = new StructType(struct_id, members, this);
         struct_map_[struct_id] = new_struct_type;
         struct_map_.insert({struct_id, new_struct_type});
     }
