@@ -30,8 +30,6 @@
 #define CONST_FP(num) \
     (ConstantFP::get(num, MOD))
 
-#define GET_CONST(astNum) \
-    ((astNum).type == TYPE_INT ? (Value *)CONST_INT((astNum).i_val) : (Value *)CONST_FP((astNum).f_val))
 #define CONST_ZERO(type) \
     ConstantZero::get(type, MOD)
 
@@ -39,13 +37,35 @@
 
 struct ValueInfo
 {
-    Value *value;
+    Value *value = nullptr;
     bool is_lvalue = false;
+
+    // Only for member functions
     struct
     {
-        bool is_member = false;
-        StructType *belonged_struct;
+        bool is_member_func = false;
+        Value *belonged_struct_ptr;
     } struct_member;
+
+    bool has_value()
+    {
+        return value;
+    }
+    Type *get_type()
+    {
+        if (is_lvalue)
+        {
+            // assert(value->get_type()->is_pointer_type() || value->get_type()->is_reference());
+            // if(value->get_type()->is_pointer_type())
+            //     return value->get_type()->get_pointer_element_type();
+            // else
+            //     return dynamic_cast<ReferenceType *>(value->get_type())->type->get_element_type();
+            assert(value->get_type()->is_pointer_type());
+            return value->get_type()->get_pointer_element_type();
+        }
+        else
+            return value->get_type();
+    }
 };
 
 class Scope
@@ -109,7 +129,7 @@ public:
 
         std::vector<Type *> output_params;
         output_params.push_back(TyInt32);
-        auto output_type = FunctionType::get(TyVoid, output_params,MOD);
+        auto output_type = FunctionType::get(TyVoid, output_params, MOD);
         auto output_fun =
             Function::create(
                 output_type,
@@ -290,11 +310,12 @@ private:
 
     // Struct scope, for member functions
     vector<StructType *> struct_nest;
-    std::string get_struct_id_prefix(){
-        std::string prefix;
-        for (auto &&s : struct_nest)
-            prefix += s->print() + ".";
-        return prefix;
+    std::string get_struct_id_prefix()
+    {
+        if (!struct_nest.empty())
+            return struct_nest.back()->get_id() + ".";
+        else
+            return "";
     }
 
     // Function scope
@@ -310,7 +331,239 @@ private:
     size_t label_name_cnt = 0;
 
     // ======================================================================
+    /**
+     * @brief For constructors, assign, arithmatic operations, etc. 
+     * 
+     */
 
+    void create_construct(string variable_name, Type *variable_type, ValueInfo init_value = {nullptr})
+    {
+        Value *address;
+        if (scope.in_global())
+        {
+            // TODO Initialize global variables
+            // Constant *init_val = ConstantZero::get(baseType, MOD);
+            address = GlobalVariable::create(variable_name, MOD, variable_type, false, nullptr);
+        }
+        else
+            address = builder->create_alloca(variable_type);
+
+        scope.push(variable_name, address);
+
+        // Initialization
+        if (init_value.has_value())
+        {
+            if (variable_type->is_reference())
+            {
+                assert(init_value.value && init_value.is_lvalue);
+                builder->create_store(init_value.value, address);
+            }
+            else // Default initialization
+            {
+                create_assign(address, init_value);
+            }
+        }
+    }
+
+    ValueInfo create_assign(Value *address, ValueInfo value)
+    {
+        assert(value.has_value());
+        auto type = dynamic_cast<PointerType *>(address->get_type())->get_element_type();
+        if (type->is_reference())
+        {
+            address = builder->create_load(address);
+            create_assign(address, value);
+            return ValueInfo{address, true};
+        }
+        else if (type->is_struct_type()) // Copy for structures
+        {
+            assert(value.is_lvalue && dynamic_cast<PointerType *>(value.value->get_type())->get_element_type()->is_struct_type());
+            auto src_struct_type = dynamic_cast<StructType *>(value.value->get_type()->get_pointer_element_type());
+            assert(type == src_struct_type);
+            if (/*TODO*/ false)
+            {
+                return ValueInfo{address, true};
+            }
+            else // Default copy for structures
+            {
+                for (int i = 0; i < src_struct_type->get_members().size(); i++)
+                {
+                    auto dest_member_addr = builder->create_gep(address, {CONST_INT(0), CONST_INT(i)});
+                    auto src_member_addr = builder->create_gep(value.value, {CONST_INT(0), CONST_INT(i)});
+                    create_assign(dest_member_addr, {src_member_addr, true});
+                }
+                return ValueInfo{address, true};
+            }
+        }
+        else // Default copy for scalar types
+        {
+            builder->create_store(get_r_value(value), address);
+            return ValueInfo{address, true};
+        }
+    }
+
+    ValueInfo create_call(ValueInfo operand, std::vector<ValueInfo> args)
+    {
+        // TODO dereference pointers
+
+        if (operand.struct_member.is_member_func)
+        {
+            args.insert(args.begin(), ValueInfo{operand.struct_member.belonged_struct_ptr});
+            return native_call(dynamic_cast<Function *>(operand.value), args);
+        }
+        else // Default operation for calling
+        {
+            return native_call(dynamic_cast<Function *>(operand.value), args);
+        }
+    }
+
+    ValueInfo create_subscript(ValueInfo operand, ValueInfo subscript)
+    {
+        if (operand.get_type()->is_pointer_type()) // Default operation for pointers
+        {
+            return ValueInfo{builder->create_gep(get_r_value(operand), {get_r_value(subscript)}), true};
+        }
+        else if (operand.get_type()->is_array_type())
+        {
+            assert(operand.is_lvalue);
+            return ValueInfo{builder->create_gep(operand.value, {CONST_INT(0), get_r_value(subscript)}), true};
+        }
+        else
+        {
+            throw "Operator overloading is not implemented"; // TODO
+        }
+    }
+
+    ValueInfo create_member_access(ValueInfo operand, string member_id)
+    {
+        assert(operand.get_type()->is_struct_type());
+        auto struct_type = dynamic_cast<StructType *>(operand.get_type());
+        int member_idx = struct_type->get_element_index(member_id);
+        if (member_idx < 0)
+        {
+            auto function = scope.find(struct_type->get_id() + "." + member_id);
+            assert(dynamic_cast<Function *>(function) && "Undefined struct member");
+            ValueInfo res;
+            res.value = function;
+            res.is_lvalue = false;
+            res.struct_member.belonged_struct_ptr = operand.value;
+            res.struct_member.is_member_func = true;
+            return res;
+        }
+        else
+        {
+            auto member = builder->create_gep(operand.value, {CONST_INT(0), CONST_INT(member_idx)});
+            return ValueInfo{member, true};
+        }
+    }
+
+    ValueInfo create_dereference(ValueInfo operand)
+    {
+        if (operand.get_type()->is_pointer_type())
+        {
+            return ValueInfo{get_r_value(operand), true};
+        }
+        else
+        {
+            // TODO
+            throw "Dereference overloading not implented";
+        }
+    }
+
+    ValueInfo create_addressof(ValueInfo operand)
+    {
+        // if (operand.get_type()->is_function_type())
+        // {
+        //     operand.value->
+        // }
+        // else
+        {
+            assert(operand.is_lvalue);
+            return ValueInfo{operand.value};
+        }
+    }
+
+    ValueInfo create_mul(ValueInfo loperand, ValueInfo roperand, MulOp op)
+    {
+        // TODO
+        return ValueInfo{mulFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+    }
+
+    ValueInfo create_add(ValueInfo loperand, ValueInfo roperand, AddOp op)
+    {
+        // TODO
+        return ValueInfo{
+            addFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+    }
+
+    ValueInfo create_rel(ValueInfo loperand, ValueInfo roperand, RelOp op)
+    {
+        // TODO
+        return ValueInfo{
+            compFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+    }
+
+    // ======================================================================
+    /**
+     * @brief Some helper functions
+     * 
+     */
+
+    Value *get_r_value(ValueInfo value)
+    {
+        assert(!value.get_type()->is_struct_type());
+        if (value.is_lvalue)
+            return builder->create_load(value.value);
+        else
+            return value.value;
+    }
+
+    ValueInfo native_call(Function *callee, std::vector<ValueInfo> args)
+    {
+        std::vector<Value *> args_values;
+        for (auto arg : args)
+        {
+            Value *arg_value = arg.value;
+            if (!arg.get_type()->is_struct_type())
+                arg_value = get_r_value(arg);
+            args_values.push_back(arg_value);
+        }
+
+        auto return_type = callee->get_return_type();
+        ValueInfo return_value;
+        if (return_type->is_struct_type())
+        {
+            auto return_value_write_ptr = builder->create_alloca(return_type);
+            builder->create_call(callee, std::move(args_values), return_value_write_ptr);
+            return_value = ValueInfo{return_value_write_ptr, true};
+        }
+        else if (return_type->is_reference())
+        {
+            return_value = ValueInfo{builder->create_call(callee, std::move(args_values)), true};
+        }
+        else
+        {
+            return_value = ValueInfo{builder->create_call(callee, std::move(args_values))};
+        }
+        return return_value;
+    }
+
+    // TODO Support `auto`
+    // bool is_auto(ASTTypeSpecifier &node)
+    // {
+    //     auto named_type_specifier = dynamic_cast<ASTNamedType *>(&node);
+    //     if (!named_type_specifier)
+    //         return false;
+    //     else
+    //     {
+    //         if (named_type_specifier->type_name == "auto")
+    //             return true;
+    //         else
+    //             return false;
+    //     }
+    // }
+
+    // ======================================================================
     /**
      * @brief Convert `enum CminusType` to `Type *`
      * @param CminusType a `enum CminusType` value
