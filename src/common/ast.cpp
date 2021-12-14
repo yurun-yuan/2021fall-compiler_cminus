@@ -183,20 +183,20 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         {
             NEW(ASTDeclarationIdentifier);
             auto var_ref = CHILD(0);
-            if (var_ref->children_num == 0)
+            if (var_ref->children_num == 0) // Not reference, no var name
             {
                 ;
             }
-            else if (var_ref->children_num == 2)
+            else if (var_ref->children_num == 2) // Is reference, has var name
             {
                 node->is_ref = true;
                 node->id = var_ref->children[1]->name;
             }
-            else if (STR_EQ(var_ref->children[0]->name, "&"))
+            else if (STR_EQ(var_ref->children[0]->name, "&")) // Is reference, no var name
             {
                 node->is_ref = true;
             }
-            else
+            else // Not reference, has var name
             {
                 node->id = var_ref->children[0]->name;
             }

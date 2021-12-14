@@ -18,15 +18,15 @@ class Type
 public:
     enum TypeID
     {
-        VoidTyID,           // Void
-        LabelTyID,          // Labels, e.g., BasicBlock
-        IntegerTyID,        // Integers, include 32 bits and 1 bit
-        FunctionTyID,       // Functions
-        ArrayTyID,          // Arrays
-        PointerTyID,        // Pointer
-        FloatTyID,          // float
-        StructTyID,         // struct
-        ReferenceTyID       // Reference
+        VoidTyID,     // Void
+        LabelTyID,    // Labels, e.g., BasicBlock
+        IntegerTyID,  // Integers, include 32 bits and 1 bit
+        FunctionTyID, // Functions
+        ArrayTyID,    // Arrays
+        PointerTyID,  // Pointer
+        FloatTyID,    // float
+        StructTyID,   // struct
+        ReferenceTyID // Reference
     };
 
     explicit Type(TypeID tid, Module *m);
@@ -41,6 +41,8 @@ public:
     bool is_integer_type() const { return get_type_id() == IntegerTyID; }
 
     bool is_function_type() const { return get_type_id() == FunctionTyID; }
+
+    bool is_struct_type() const { return get_type_id() == StructTyID; }
 
     bool is_array_type() const { return get_type_id() == ArrayTyID; }
 
@@ -131,18 +133,22 @@ public:
         std::string member_id;
     };
 
-    StructType(std::string struct_id, std::vector<StructMember> members);
+    StructType(std::string struct_id, std::vector<StructMember> members, Module *m);
 
     static StructType *get(std::string struct_id, Module *m);
-    unsigned get_element_index(std::string member_id)
+    int get_element_index(std::string member_id)
     {
         for (size_t i = 0; i < members.size(); i++)
         {
             if (members[i].member_id == member_id)
                 return i;
         }
-        assert("Unrecognized member identifier");
-        return 0;
+        return -1;
+    }
+    auto &get_members() const { return members; }
+    std::string get_id() const
+    {
+        return struct_id;
     }
     std::string print() override
     {
@@ -153,7 +159,7 @@ public:
     {
         std::string res;
         res += "%struct." + struct_id;
-        res += "{";
+        res += " = type {";
         if (!members.empty())
         {
             res += members.front().type->print();

@@ -35,7 +35,7 @@ public:
         fcmp,
         phi,
         call,
-        getelementptr, 
+        getelementptr,
         zext, // zero extend
         fptosi,
         sitofp
@@ -55,36 +55,79 @@ public:
     Module *get_module();
 
     OpID get_instr_type() { return op_id_; }
-    std::string get_instr_op_name() {
+    std::string get_instr_op_name()
+    {
         switch (op_id_)
         {
-            case ret: return "ret"; break;
-            case br: return "br"; break;
-            case add: return "add"; break;
-            case sub: return "sub"; break;
-            case mul: return "mul"; break;
-            case sdiv: return "sdiv"; break;
-            case fadd: return "fadd"; break;
-            case fsub: return "fsub"; break;
-            case fmul: return "fmul"; break;
-            case fdiv: return "fdiv"; break;
-            case alloca: return "alloca"; break;
-            case load: return "load"; break;
-            case store: return "store"; break;
-            case cmp: return "cmp"; break;
-            case fcmp: return "fcmp"; break;
-            case phi: return "phi"; break;
-            case call: return "call"; break;
-            case getelementptr: return "getelementptr"; break;
-            case zext: return "zext"; break;
-            case fptosi: return "fptosi"; break;
-            case sitofp: return "sitofp"; break;
-        
-        default: return ""; break;
+        case ret:
+            return "ret";
+            break;
+        case br:
+            return "br";
+            break;
+        case add:
+            return "add";
+            break;
+        case sub:
+            return "sub";
+            break;
+        case mul:
+            return "mul";
+            break;
+        case sdiv:
+            return "sdiv";
+            break;
+        case fadd:
+            return "fadd";
+            break;
+        case fsub:
+            return "fsub";
+            break;
+        case fmul:
+            return "fmul";
+            break;
+        case fdiv:
+            return "fdiv";
+            break;
+        case alloca:
+            return "alloca";
+            break;
+        case load:
+            return "load";
+            break;
+        case store:
+            return "store";
+            break;
+        case cmp:
+            return "cmp";
+            break;
+        case fcmp:
+            return "fcmp";
+            break;
+        case phi:
+            return "phi";
+            break;
+        case call:
+            return "call";
+            break;
+        case getelementptr:
+            return "getelementptr";
+            break;
+        case zext:
+            return "zext";
+            break;
+        case fptosi:
+            return "fptosi";
+            break;
+        case sitofp:
+            return "sitofp";
+            break;
+
+        default:
+            return "";
+            break;
         }
     }
-
-
 
     bool is_void() { return ((op_id_ == ret) || (op_id_ == br) || (op_id_ == store) || (op_id_ == call && this->get_type()->is_void_type())); }
 
@@ -99,8 +142,7 @@ public:
     bool is_sub() { return op_id_ == sub; }
     bool is_mul() { return op_id_ == mul; }
     bool is_div() { return op_id_ == sdiv; }
-    
-    
+
     bool is_fadd() { return op_id_ == fadd; }
     bool is_fsub() { return op_id_ == fsub; }
     bool is_fmul() { return op_id_ == fmul; }
@@ -114,7 +156,6 @@ public:
     bool is_call() { return op_id_ == call; }
     bool is_gep() { return op_id_ == getelementptr; }
     bool is_zext() { return op_id_ == zext; }
-    
 
     bool isBinary()
     {
@@ -233,13 +274,16 @@ private:
 class CallInst : public Instruction
 {
 protected:
-    CallInst(Function *func, std::vector<Value *> args, BasicBlock *bb);
+    CallInst(Function *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value = nullptr);
 
 public:
-    static CallInst *create(Function *func, std::vector<Value *> args, BasicBlock *bb);
+    static CallInst *create(Function *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value = nullptr);
     FunctionType *get_function_type() const;
 
     virtual std::string print() override;
+
+private:
+    Value *return_value;
 };
 
 class BranchInst : public Instruction

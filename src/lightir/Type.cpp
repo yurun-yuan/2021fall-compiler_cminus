@@ -185,7 +185,7 @@ unsigned IntegerType::get_num_bits()
 }
 
 FunctionType::FunctionType(Type *result, std::vector<Type *> params)
-    : Type(Type::FunctionTyID, nullptr)
+    : Type(Type::FunctionTyID, result->get_module())
 {
     assert(is_valid_return_type(result) && "Invalid return type for function!");
     result_ = result;
@@ -229,7 +229,7 @@ Type *FunctionType::get_return_type() const
     return result_;
 }
 
-StructType::StructType(std::string struct_id, std::vector<StructMember> members) : Type(TypeID::StructTyID, nullptr), struct_id(struct_id), members(members) {}
+StructType::StructType(std::string struct_id, std::vector<StructMember> members, Module*m) : Type(TypeID::StructTyID, m), struct_id(struct_id), members(members) {}
 
 StructType *StructType::get(std::string struct_id, Module *m)
 {

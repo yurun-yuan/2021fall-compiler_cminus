@@ -23,6 +23,8 @@ public:
 
     Type *get_type() const { return type_; }
 
+    virtual Type *get_print_type() const { return type_; }
+
     std::list<Use> &get_use_list() { return use_list_; }
 
     void add_use(Value *val, unsigned arg_no = 0);
