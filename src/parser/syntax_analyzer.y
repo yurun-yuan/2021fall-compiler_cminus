@@ -136,7 +136,7 @@ var-declaration : type-specifier var-decl-expression {$$ = node( "var-declaratio
 
 type-specifier  :  scalar-type-specifier {$$ = node( "type-specifier", 1, $1);}
                 |  struct-definition {$$ = node( "type-specifier", 1, $1);}
-				|  IDENTIFIER {$$ = node( "type-specifier", 1, $1);}
+				/* |  IDENTIFIER {$$ = node( "type-specifier", 1, $1);} */
 				|  STRUCT IDENTIFIER {$$ = node( "type-specifier", 2, $1, $2);}
 				;
 
@@ -311,8 +311,9 @@ syntax_tree_node *node(const char *name, int children_num, ...)
     syntax_tree_node *p = new_syntax_tree_node(name);
     syntax_tree_node *child;
     if (children_num == 0) {
-        child = new_syntax_tree_node("epsilon");
-        syntax_tree_add_child(p, child);
+		// Pass
+        /* child = new_syntax_tree_node("epsilon");
+        syntax_tree_add_child(p, child); */
     } else {
         va_list ap;
         va_start(ap, children_num);
