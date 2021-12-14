@@ -87,9 +87,7 @@ int main(int argc, char **argv)
             }
         }
     }
-    emit = true;
-    mem2reg = true;
-    const_propagation = true;
+    // emit = true;
     input_path = "test.cminus";
     if (input_path.empty())
     {
@@ -168,9 +166,9 @@ int main(int argc, char **argv)
     {
         auto command_string = "clang -O0 -w "s + target_path + ".ll -o " + target_path + " -L. -lcminus_io";
         int re_code0 = std::system(command_string.c_str());
-        command_string = "rm "s + target_path + ".ll";
-        int re_code1 = std::system(command_string.c_str());
-        if (re_code0 == 0 && re_code1 == 0)
+        // command_string = "rm "s + target_path + ".ll";
+        // int re_code1 = std::system(command_string.c_str());
+        if (re_code0 == 0/* && re_code1 == 0*/)
             return 0;
         else
             return 1;
