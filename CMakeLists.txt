@@ -37,4 +37,4 @@ include_directories(include/lightir)
 include_directories(include/optimization)
 
 add_subdirectory(src)
-add_subdirectory(tests)
+# add_subdirectory(tests)
