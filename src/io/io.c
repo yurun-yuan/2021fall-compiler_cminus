@@ -17,7 +17,13 @@ float input_float()
 int input_char()
 {
     char c;
-    scanf("%c", &c);
+    while (1)
+    {
+        c = getchar();
+        if (c != '\n' && c != '\r' && c != ' ')
+            break;
+    }
+
     return (int)c;
 }
 
