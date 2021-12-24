@@ -29,7 +29,13 @@ public:
 
     Type *get_return_type() const;
 
-    virtual Type *get_print_type() const override;
+    /**
+     * @brief Print the function pointer type
+     */
+    virtual Type *get_print_type() const override
+    {
+        return PointerType::get(get_type()->get_print_type());
+    }
 
     Value *get_ret() const;
 
@@ -89,6 +95,7 @@ public:
     }
 
     virtual std::string print() override;
+
 private:
     Function *parent_;
     unsigned arg_no_; // argument No.

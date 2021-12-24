@@ -243,7 +243,7 @@ private:
     Function *lastEnteredFun = nullptr;
     bool compound_stmt_is_func_body = true;
 
-    bool isTerminalStmt = false;
+    bool is_terminal_stmt = false;
     std::vector<std::shared_ptr<ASTParam>> *params = nullptr;
     std::list<Argument *>::iterator curArg;
 

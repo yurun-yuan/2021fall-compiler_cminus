@@ -82,6 +82,11 @@ public:
 
     virtual std::string print();
 
+    virtual Type *get_print_type()
+    {
+        return this;
+    }
+
 private:
     TypeID tid_;
     Module *m_;
@@ -100,6 +105,23 @@ private:
     unsigned num_bits_;
 };
 
+class PointerType : public Type
+{
+public:
+    PointerType(Type *contained);
+    Type *get_element_type() const { return contained_; }
+
+    static PointerType *get(Type *contained);
+
+    virtual Type *get_print_type() override
+    {
+        return PointerType::get(contained_->get_print_type());
+    }
+
+private:
+    Type *contained_; // The element type of the ptr.
+};
+
 class FunctionType : public Type
 {
 public:
@@ -112,6 +134,46 @@ public:
                              std::vector<Type *> params, Module *m);
 
     unsigned get_num_of_args() const;
+
+    /**
+     * @brief Get the wrapped function type, i.e., from a function pointer
+     * 
+     * @param src 
+     * @return FunctionType* 
+     */
+    static FunctionType *get_wrapped_function_type(Type *src)
+    {
+        FunctionType *res;
+        if (src->is_function_type())
+            res = dynamic_cast<FunctionType *>(src);
+        else
+        {
+            assert(src->is_pointer_type());
+            assert(src->get_pointer_element_type()->is_function_type());
+            res = dynamic_cast<FunctionType *>(src->get_pointer_element_type());
+        }
+        assert(res);
+        return res;
+    }
+
+    virtual Type *get_print_type() override
+    {
+        decltype(args_) args;
+        auto result = result_;
+        if (result_->is_struct_type())
+        {
+            args.push_back(PointerType::get(result_));
+            result = Type::get_void_type(get_module());
+        }
+        for (auto arg_ : args_)
+        {
+            if (arg_->is_struct_type())
+                args.push_back(PointerType::get(arg_));
+            else
+                args.push_back(arg_);
+        }
+        return get(result, args, get_module());
+    }
 
     Type *get_param_type(unsigned i) const;
     std::vector<Type *>::iterator param_begin() { return args_.begin(); }
@@ -190,21 +252,14 @@ public:
     Type *get_element_type() const { return contained_; }
     unsigned get_num_of_elements() const { return num_elements_; }
 
+    virtual Type *get_print_type() override
+    {
+        return ArrayType::get(contained_->get_print_type(), num_elements_);
+    }
+
 private:
     Type *contained_;       // The element type of the array.
     unsigned num_elements_; // Number of elements in the array.
-};
-
-class PointerType : public Type
-{
-public:
-    PointerType(Type *contained);
-    Type *get_element_type() const { return contained_; }
-
-    static PointerType *get(Type *contained);
-
-private:
-    Type *contained_; // The element type of the ptr.
 };
 
 class ReferenceType : public Type

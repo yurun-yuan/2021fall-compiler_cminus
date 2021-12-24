@@ -14,6 +14,7 @@
 #include <functional>
 #include <algorithm>
 #include <optional>
+#include <string>
 
 // use these macros to get constant value
 
@@ -55,11 +56,6 @@ struct ValueInfo
     {
         if (is_lvalue)
         {
-            // assert(value->get_type()->is_pointer_type() || value->get_type()->is_reference());
-            // if(value->get_type()->is_pointer_type())
-            //     return value->get_type()->get_pointer_element_type();
-            // else
-            //     return dynamic_cast<ReferenceType *>(value->get_type())->type->get_element_type();
             assert(value->get_type()->is_pointer_type());
             return value->get_type()->get_pointer_element_type();
         }
@@ -120,43 +116,39 @@ public:
         auto TyInt32 = Type::get_int32_type(module.get());
         auto TyFloat = Type::get_float_type(module.get());
 
-        auto input_type = FunctionType::get(TyInt32, {}, MOD);
-        auto input_fun =
-            Function::create(
-                input_type,
-                "input",
-                module.get());
-
-        std::vector<Type *> output_params;
-        output_params.push_back(TyInt32);
-        auto output_type = FunctionType::get(TyVoid, output_params, MOD);
-        auto output_fun =
-            Function::create(
-                output_type,
-                "output",
-                module.get());
-
-        std::vector<Type *> output_float_params;
-        output_float_params.push_back(TyFloat);
-        auto output_float_type = FunctionType::get(TyVoid, output_float_params, MOD);
-        auto output_float_fun =
-            Function::create(
-                output_float_type,
-                "outputFloat",
-                module.get());
-
-        auto neg_idx_except_type = FunctionType::get(TyVoid, {}, MOD);
-        auto neg_idx_except_fun =
-            Function::create(
-                neg_idx_except_type,
-                "neg_idx_except",
-                module.get());
-
         scope.enter();
-        scope.push("input", input_fun);
-        scope.push("output", output_fun);
-        scope.push("outputFloat", output_float_fun);
-        scope.push("neg_idx_except", neg_idx_except_fun);
+        scope.push("input_int", Function::create(
+                                    FunctionType::get(TyInt32, {}, MOD),
+                                    "input_int",
+                                    module.get()));
+        scope.push("input_float", Function::create(
+                                    FunctionType::get(TyFloat, {}, MOD),
+                                    "input_float",
+                                    module.get()));
+        scope.push("input_char", Function::create(
+                                     FunctionType::get(TyInt32, {}, MOD),
+                                     "input_char",
+                                     module.get()));
+        scope.push("print_int", Function::create(
+                                     FunctionType::get(TyVoid, {TyInt32}, MOD),
+                                     "print_int",
+                                     module.get()));
+        scope.push("println_int", Function::create(
+                                    FunctionType::get(TyVoid, {TyInt32}, MOD),
+                                    "println_int",
+                                    module.get()));
+        scope.push("print_float", Function::create(
+                                        FunctionType::get(TyVoid, {TyFloat}, MOD),
+                                        "print_float",
+                                        module.get()));
+        scope.push("println_float", Function::create(
+                                      FunctionType::get(TyVoid, {TyFloat}, MOD),
+                                      "println_float",
+                                      module.get()));
+        scope.push("print_char", Function::create(
+                                      FunctionType::get(TyVoid, {TyInt32}, MOD),
+                                      "print_char",
+                                      module.get()));
 
         // Initialize function tables
         compulsiveTypeConvertTable = {{{GET_INT32, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
@@ -255,6 +247,7 @@ private:
     virtual void visit(ASTReturnStmt &) override final;
     virtual void visit(ASTVar &) override final;
     virtual void visit(ASTNum &) override final;
+    virtual void visit(ASTReinterpretCast &) override final;
     virtual void visit(ASTCall &) override final;
     virtual void visit(ASTSubscript &) override final;
     virtual void visit(ASTMemberAccess &) override final;
@@ -272,12 +265,14 @@ private:
 
     // ======================================================================
 
-    // See `group discussion.md` for more info
     std::map<Type *, int> typeOrderRank;
     std::map<std::pair<Type *, enum RelOp>, CompFuncType> compFuncTable;
     std::map<std::pair<Type *, enum AddOp>, AddFuncType> addFuncTable;
     std::map<std::pair<Type *, enum MulOp>, MulFuncType> mulFuncTable;
     std::map<std::pair<Type *, Type *>, ConvertorFuncType> compulsiveTypeConvertTable;
+
+    // Operator overload
+    std::map<std::pair<char, Type *>, Function *> operator_overload_table;
 
     // ======================================================================
     /**
@@ -287,7 +282,7 @@ private:
 
     bool compound_stmt_is_func_body = true;
 
-    bool isTerminalStmt = false;
+    bool is_terminal_stmt = false;
 
     // Use stack to evaluate expressions
     std::stack<ValueInfo> cal_stack;
@@ -404,16 +399,19 @@ private:
 
     ValueInfo create_call(ValueInfo operand, std::vector<ValueInfo> args)
     {
-        // TODO dereference pointers
-
         if (operand.struct_member.is_member_func)
         {
             args.insert(args.begin(), ValueInfo{operand.struct_member.belonged_struct_ptr});
             return native_call(dynamic_cast<Function *>(operand.value), args);
         }
+        else if (operand.get_type()->is_pointer_type() && operand.get_type()->get_pointer_element_type()->is_function_type())
+        {
+            auto func_ptr = get_r_value(operand);
+            return native_call(func_ptr, args);
+        }
         else // Default operation for calling
         {
-            return native_call(dynamic_cast<Function *>(operand.value), args);
+            return native_call(operand.value, args);
         }
     }
 
@@ -491,9 +489,15 @@ private:
 
     ValueInfo create_add(ValueInfo loperand, ValueInfo roperand, AddOp op)
     {
-        // TODO
-        return ValueInfo{
-            addFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+        char c_op = op == AddOp::OP_PLUS ? '+' : '-';
+        if (operator_overload_table.find({c_op, loperand.get_type()}) != operator_overload_table.end())
+        {
+            auto overloaded_func = operator_overload_table[{c_op, loperand.get_type()}];
+            return native_call(overloaded_func, {create_addressof(loperand), roperand});
+        }
+        else
+            return ValueInfo{
+                addFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
     }
 
     ValueInfo create_rel(ValueInfo loperand, ValueInfo roperand, RelOp op)
@@ -511,14 +515,14 @@ private:
 
     Value *get_r_value(ValueInfo value)
     {
-        assert(!value.get_type()->is_struct_type());
+        assert(!value.value->get_type()->is_struct_type());
         if (value.is_lvalue)
             return builder->create_load(value.value);
         else
             return value.value;
     }
 
-    ValueInfo native_call(Function *callee, std::vector<ValueInfo> args)
+    ValueInfo native_call(Value *callee, std::vector<ValueInfo> args)
     {
         std::vector<Value *> args_values;
         for (auto arg : args)
@@ -528,8 +532,16 @@ private:
                 arg_value = get_r_value(arg);
             args_values.push_back(arg_value);
         }
-
-        auto return_type = callee->get_return_type();
+        Type *return_type;
+        if (callee->get_type()->is_function_type())
+            return_type = dynamic_cast<FunctionType *>(callee->get_type())->get_return_type();
+        else
+        {
+            assert(callee->get_type()->is_pointer_type());
+            assert(callee->get_type()->get_pointer_element_type()->is_function_type());
+            auto func_type = dynamic_cast<FunctionType *>(callee->get_type()->get_pointer_element_type());
+            return_type = func_type->get_return_type();
+        }
         ValueInfo return_value;
         if (return_type->is_struct_type())
         {
@@ -537,10 +549,10 @@ private:
             builder->create_call(callee, std::move(args_values), return_value_write_ptr);
             return_value = ValueInfo{return_value_write_ptr, true};
         }
-        else if (return_type->is_reference())
-        {
-            return_value = ValueInfo{builder->create_call(callee, std::move(args_values)), true};
-        }
+        // else if (return_type->is_reference())
+        // {
+        //     return_value = ValueInfo{builder->create_call(callee, std::move(args_values)), true};
+        // }
         else
         {
             return_value = ValueInfo{builder->create_call(callee, std::move(args_values))};
@@ -661,7 +673,7 @@ private:
         return resType;
     }
 
-    BasicBlock *newBasicBlock()
+    BasicBlock *new_basic_block()
     {
         return BasicBlock::create(MOD, std::to_string(label_name_cnt++), function_nest.top());
     }

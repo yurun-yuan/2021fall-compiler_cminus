@@ -33,6 +33,7 @@ Module::Module(std::string name)
     instr_id2string_.insert({Instruction::zext, "zext"});
     instr_id2string_.insert({Instruction::sitofp, "sitofp"});
     instr_id2string_.insert({Instruction::fptosi, "fptosi"});
+    instr_id2string_.insert({Instruction::bitcast, "bitcast"});
 }
 
 Module::~Module()

@@ -70,10 +70,12 @@ syntax_tree_node *node(const char *node_name, int children_num, ...);
 %token <node> FLOAT
 %token <node> FLOATPOINT
 %token <node> STRING
+%token <node> OPERATOR
+%token <node> REINTERPRETCAST
 //%token <node> EOL
 //%token <node> BLANK
 //%token <node> COMMENT
-%type <node> program definition-list definition definitions var-reference var-decl-atom var-decl-element var-decl-expression params param-list var-declaration type-specifier scalar-type-specifier struct-definition fun-definition compound-stmt statements statement-list statement var-definition expression-stmt selection-stmt iteration-stmt return-stmt atom element factor multiplicative-expression additive-expression relational-expression expression relop addop mulop integer float string args arg-list 
+%type <node> program definition-list definition definitions var-reference var-decl-atom var-decl-element var-decl-expression params param-list var-declaration type-specifier scalar-type-specifier struct-definition fun-definition compound-stmt statements statement-list statement var-definition expression-stmt selection-stmt iteration-stmt return-stmt atom reinterpret-cast element factor multiplicative-expression additive-expression relational-expression expression relop addop mulop integer float string args arg-list 
 
 /* compulsory starting symbol */
 %start program
@@ -105,6 +107,8 @@ definitions : definition-list {$$ = node( "definitions", 1, $1);}
 var-reference   :   IDENTIFIER {$$ = node( "var-reference", 1, $1);}
                 |   ADDROF IDENTIFIER {$$ = node( "var-reference", 2, $1, $2);}
 				|   ADDROF {$$ = node( "var-reference", 1, $1);}
+				|   OPERATOR addop {$$ = node( "var-reference", 2, $1, $2);}
+				|   OPERATOR mulop {$$ = node( "var-reference", 2, $1, $2);}
 				|   %empty {$$ = node("var-reference", 0);}
 				;
 
@@ -205,7 +209,11 @@ atom        :  IDENTIFIER {$$ = node( "atom", 1, $1);}
 			|  float {$$ = node( "atom", 1, $1);}
 			|  string {$$ = node( "atom", 1, $1);}
 			|  LPARENTHESE expression RPARENTHESE {$$ = node( "atom", 3, $1, $2, $3);}
+			|  reinterpret-cast {$$ = node( "atom", 1, $1);}
 			;
+
+reinterpret-cast : REINTERPRETCAST LT var-declaration GT LPARENTHESE expression RPARENTHESE {$$ = node( "reinterpret-cast", 7, $1, $2, $3, $4, $5, $6, $7);}
+                 ;
 
 element     :  element LPARENTHESE args RPARENTHESE{$$ = node( "element", 4, $1, $2, $3, $4);}
             |  element LBRACKET expression RBRACKET{$$ = node( "element", 4, $1, $2, $3, $4);}

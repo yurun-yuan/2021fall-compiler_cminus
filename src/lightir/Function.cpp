@@ -26,11 +26,6 @@ Type *Function::get_return_type() const
     return get_function_type()->get_return_type();
 }
 
-Type *Function::get_print_type() const
-{
-    return PointerType::get(get_type());
-}
-
 Value *Function::get_ret() const
 {
     return return_value;
@@ -66,8 +61,8 @@ void Function::build_args()
     unsigned num_args = get_num_of_args();
     auto struct_to_ptr = [&](Type *type)
     {
-        if(type->is_struct_type())
-            return static_cast<Type*>(PointerType::get(type));
+        if (type->is_struct_type())
+            return static_cast<Type *>(PointerType::get(type));
         else
             return type;
     };
@@ -137,16 +132,13 @@ std::string Function::print()
     func_ir += print_as_op(this, false);
     func_ir += "(";
 
-    if (get_return_type()->is_struct_type())
+    if (struct_return_type())
     {
         assert(return_value);
-        func_ir += return_value->print();
-        func_ir += " sret";
+        func_ir += return_value->get_print_type()->print();
+        func_ir += " sret ";
         if (!is_declaration())
-        {
-            func_ir += " %";
-            func_ir += return_value->get_name();
-        }
+            func_ir += print_as_op(return_value, false);
         if (get_num_of_args() != 0)
             func_ir += ", ";
     }
@@ -195,10 +187,7 @@ std::string Function::print()
 std::string Argument::print()
 {
     std::string arg_ir;
-    if (get_type()->is_struct_type())
-        arg_ir += PointerType::get(get_type())->print();
-    else
-        arg_ir += get_type()->print();
+    arg_ir += get_print_type()->print();
     arg_ir += " %";
     arg_ir += get_name();
     return arg_ir;

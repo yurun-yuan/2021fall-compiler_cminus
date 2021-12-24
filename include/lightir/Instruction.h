@@ -13,7 +13,7 @@ class Instruction : public User
 public:
     enum OpID
     {
-        // Terminator Instructions
+        // Terminator instructions
         ret,
         br,
         // Standard binary operators
@@ -38,9 +38,9 @@ public:
         getelementptr,
         zext, // zero extend
         fptosi,
-        sitofp
-        // float binary operators Logical operators
+        sitofp,
 
+        bitcast
     };
     // create instruction, auto insert to bb
     // ty here is result type
@@ -122,7 +122,9 @@ public:
         case sitofp:
             return "sitofp";
             break;
-
+        case bitcast:
+            return "bitcast";
+            break;
         default:
             return "";
             break;
@@ -156,6 +158,8 @@ public:
     bool is_call() { return op_id_ == call; }
     bool is_gep() { return op_id_ == getelementptr; }
     bool is_zext() { return op_id_ == zext; }
+
+    bool is_bitcast() { return op_id_ == bitcast; }
 
     bool isBinary()
     {
@@ -274,10 +278,10 @@ private:
 class CallInst : public Instruction
 {
 protected:
-    CallInst(Function *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value = nullptr);
+    CallInst(Value *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value = nullptr);
 
 public:
-    static CallInst *create(Function *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value = nullptr);
+    static CallInst *create(Value *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value = nullptr);
     FunctionType *get_function_type() const;
 
     virtual std::string print() override;
@@ -443,6 +447,24 @@ public:
         this->add_operand(pre_bb);
     }
     virtual std::string print() override;
+};
+
+class BitcastInst : public Instruction
+{
+public:
+    BitcastInst(Value *src, Type *target_type, BasicBlock *bb) : Instruction(target_type, Instruction::bitcast, 1, bb), src_expression(src)
+    {
+        set_operand(0, src);
+    }
+    virtual std::string print() override;
+
+    static BitcastInst *create_bitcast(Value *src, Type *target_type, BasicBlock *bb)
+    {
+        return new BitcastInst(src, target_type, bb);
+    }
+
+private:
+    Value *src_expression;
 };
 
 #endif // SYSYC_INSTRUCTION_H

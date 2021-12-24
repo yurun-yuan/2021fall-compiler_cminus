@@ -36,7 +36,6 @@ BinaryInst::BinaryInst(Type *ty, OpID id, Value *v1, Value *v2,
 {
     set_operand(0, v1);
     set_operand(1, v2);
-    // assertValid();
 }
 
 void BinaryInst::assertValid()
@@ -201,17 +200,9 @@ std::string FCmpInst::print()
     return instr_ir;
 }
 
-CallInst::CallInst(Function *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value)
-    : Instruction(func->get_return_type(), Instruction::call, args.size() + 1, bb), return_value(return_value)
+CallInst::CallInst(Value *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value)
+    : Instruction(FunctionType::get_wrapped_function_type(func->get_type())->get_return_type(), Instruction::call, args.size() + 1, bb), return_value(return_value)
 {
-    if (return_value)
-    {
-        assert(func->struct_return_type());
-        assert(return_value->get_type()->is_pointer_type());
-    }
-    else
-        assert(!func->struct_return_type());
-    assert(func->get_num_of_args() == args.size());
     int num_ops = args.size() + 1;
     set_operand(0, func);
     for (int i = 1; i < num_ops; i++)
@@ -220,20 +211,23 @@ CallInst::CallInst(Function *func, std::vector<Value *> args, BasicBlock *bb, Va
     }
 }
 
-CallInst *CallInst::create(Function *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value)
+CallInst *CallInst::create(Value *func, std::vector<Value *> args, BasicBlock *bb, Value *return_value)
 {
     return new CallInst(func, args, bb, return_value);
 }
 
 FunctionType *CallInst::get_function_type() const
 {
-    return static_cast<FunctionType *>(get_operand(0)->get_type());
+    return FunctionType::get_wrapped_function_type(get_operand(0)->get_type());
 }
 
 std::string CallInst::print()
 {
     std::string instr_ir;
-    if (!this->is_void())
+
+    auto function_type = FunctionType::get_wrapped_function_type(get_operand(0)->get_print_type());
+
+    if (!function_type->get_return_type()->is_void_type())
     {
         instr_ir += "%";
         instr_ir += this->get_name();
@@ -241,10 +235,9 @@ std::string CallInst::print()
     }
     instr_ir += this->get_module()->get_instr_op_name(this->get_instr_type());
     instr_ir += " ";
-    instr_ir += this->get_function_type()->get_return_type()->print();
+    instr_ir += function_type->get_return_type()->get_print_type()->print();
 
     instr_ir += " ";
-    assert(dynamic_cast<Function *>(this->get_operand(0)) && "Wrong call operand function");
     instr_ir += print_as_op(this->get_operand(0), false);
     instr_ir += "(";
 
@@ -252,7 +245,7 @@ std::string CallInst::print()
     {
         instr_ir += return_value->get_print_type()->print();
         instr_ir += " sret ";
-        instr_ir += return_value->get_name();
+        instr_ir += print_as_op(return_value, false);
         if (get_num_operand() > 1)
             instr_ir += ", ";
     }
@@ -527,7 +520,7 @@ std::string AllocaInst::print()
     instr_ir += " = ";
     instr_ir += this->get_module()->get_instr_op_name(this->get_instr_type());
     instr_ir += " ";
-    instr_ir += get_alloca_type()->print();
+    instr_ir += get_alloca_type()->get_print_type()->print();
     return instr_ir;
 }
 
@@ -676,5 +669,19 @@ std::string PhiInst::print()
             }
         }
     }
+    return instr_ir;
+}
+
+std::string BitcastInst::print()
+{
+    std::string instr_ir;
+    instr_ir += "%";
+    instr_ir += this->get_name();
+    instr_ir += " = ";
+    instr_ir += get_module()->get_instr_op_name(get_instr_type());
+    instr_ir += " ";
+    instr_ir += print_as_op(src_expression, true);
+    instr_ir += " to ";
+    instr_ir += get_type()->get_print_type()->print();
     return instr_ir;
 }

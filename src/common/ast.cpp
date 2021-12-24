@@ -183,7 +183,12 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         {
             NEW(ASTDeclarationIdentifier);
             auto var_ref = CHILD(0);
-            if (var_ref->children_num == 0) // Not reference, no var name
+            if (var_ref->children_num == 2 && var_ref->children[0]->name == string("operator"))
+            {
+                node->operator_load = var_ref->children[1]->children[0]->name[0];
+                node->id = string(var_ref->children[0]->name) + node->operator_load.value();
+            }
+            else if (var_ref->children_num == 0) // Not reference, no var name
             {
                 ;
             }
@@ -405,6 +410,14 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
             // TODO
             throw "Literal string not implemented";
         }
+        CASE_CHILD(0, "reinterpret-cast")
+        {
+            NEW(ASTReinterpretCast);
+            auto reinterpret_cast_ = CHILD(0);
+            node->obj_type = SHARED(ASTVarDeclaration, transfrom(reinterpret_cast_->children[2]));
+            node->src_expression = SHARED(ASTExpression, transfrom(reinterpret_cast_->children[5]));
+            END;
+        }
         else if (n->children_num == 3)
         {
             return transfrom(CHILD(1));
@@ -440,6 +453,7 @@ void ASTIterationStmt::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTReturnStmt::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTVar::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTNum::accept(ASTVisitor &visitor) { visitor.visit(*this); }
+void ASTReinterpretCast::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTCall::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTSubscript::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTMemberAccess::accept(ASTVisitor &visitor) { visitor.visit(*this); }

@@ -176,6 +176,7 @@ IntegerType *IntegerType::get(unsigned num_bits, Module *m)
     else
     {
         assert("IntegerType::get has error num_bits");
+        return nullptr;
     }
 }
 

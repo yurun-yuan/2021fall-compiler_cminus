@@ -134,6 +134,7 @@ struct ASTExpression : ASTNode
 };
 struct ASTVar;
 struct ASTNum;
+struct ASTReinterpretCast;
 struct ASTCall;
 struct ASTSubscript;
 struct ASTMemberAccess;
@@ -248,6 +249,7 @@ struct ASTDeclarationIdentifier : ASTDeclarationExpression
     virtual void accept(ASTVisitor &) override final;
     bool is_ref = false;
     std::optional<std::string> id;
+    std::optional<char> operator_load;
 };
 
 struct ASTDeclarationDereference : ASTDeclarationExpression
@@ -347,11 +349,17 @@ struct ASTNum : ASTExpression
         int i;
     } num;
 };
+struct ASTReinterpretCast : ASTExpression
+{
+    virtual void accept(ASTVisitor &) override final;
+    std::shared_ptr<ASTVarDeclaration> obj_type;
+    std::shared_ptr<ASTExpression> src_expression;
+};
 struct ASTCall : ASTExpression
 {
     virtual void accept(ASTVisitor &) override final;
     std::shared_ptr<ASTExpression> callee;
-    std ::vector<std::shared_ptr<ASTExpression>> args;
+    std::vector<std::shared_ptr<ASTExpression>> args;
 };
 struct ASTSubscript : ASTExpression
 {
@@ -429,6 +437,7 @@ public:
     virtual void visit(ASTReturnStmt &) = 0;
     virtual void visit(ASTVar &) = 0;
     virtual void visit(ASTNum &) = 0;
+    virtual void visit(ASTReinterpretCast &) = 0;
     virtual void visit(ASTCall &) = 0;
     virtual void visit(ASTSubscript &) = 0;
     virtual void visit(ASTMemberAccess &) = 0;

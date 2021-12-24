@@ -74,10 +74,20 @@ void CminusfBuilder::visit(ASTFunDefinition &node)
     assert(all_of(params.begin(), params.end(), [&](Type *type)
                   { return !type->is_array_type(); }));
     assert(function_prototype.id.has_value());
+    auto orig_name = function_prototype.id.value();
     assert(all_of(latest_func_def_param_names.begin(), latest_func_def_param_names.end(), [&](auto id)
                   { return id.has_value(); }));
+    bool is_operator_overload = false;
     if (!struct_nest.empty()) // Member functions
     {
+        if (!struct_nest.empty() &&
+            orig_name.size() == string("operator").size() + 1 &&
+            orig_name.starts_with("operator") &&
+            (orig_name.back() == '+' ||
+             orig_name.back() == '-' ||
+             orig_name.back() == '*' ||
+             orig_name.back() == '/'))
+            is_operator_overload = true;
         auto orig_func_ty = dynamic_cast<FunctionType *>(function_prototype.type);
         vector<Type *> params{PointerType::get(struct_nest.back())};
         for (auto &&param_ty : orig_func_ty->get_params())
@@ -86,8 +96,25 @@ void CminusfBuilder::visit(ASTFunDefinition &node)
         function_prototype.id = get_struct_id_prefix() + function_prototype.id.value();
         latest_func_def_param_names.insert(latest_func_def_param_names.begin(), "this");
     }
+    if (is_operator_overload)
+    {
+        function_prototype.id.value().pop_back();
+        function_prototype.id.value() += '.';
+        if (orig_name.back() == '+')
+            function_prototype.id.value() += "plus";
+        else if (orig_name.back() == '-')
+            function_prototype.id.value() += "minus";
+        else if (orig_name.back() == '*')
+            function_prototype.id.value() += "multiply";
+        else if (orig_name.back() == '/')
+            function_prototype.id.value() += "divide";
+    }
     Function *func = Function::create(dynamic_cast<FunctionType *>(function_prototype.type), function_prototype.id.value(), MOD);
     scope.push(function_prototype.id.value(), func);
+
+    if (is_operator_overload)
+        // Operator overloading
+        operator_overload_table[{orig_name.back(), struct_nest.back()}] = func;
 
     function_nest.push(func);
 
@@ -97,18 +124,18 @@ void CminusfBuilder::visit(ASTFunDefinition &node)
 
     node.function_body->accept(*this);
 
-    if (!isTerminalStmt)
+    if (!is_terminal_stmt)
     {
         if (function_nest.top()->get_return_type() != GET_VOID)
             throw "Non void function without return statement is forbidden";
         else
         {
-            isTerminalStmt = true;
+            is_terminal_stmt = true;
             builder->create_void_ret();
         }
     }
     function_nest.pop();
-    isTerminalStmt = false;
+    is_terminal_stmt = false;
 }
 
 /**
@@ -191,6 +218,10 @@ void CminusfBuilder::visit(ASTNamedType &node)
     {
         type_specifier_res.top().type = GET_FLOAT;
     }
+    else if (node.type_name == "void")
+    {
+        type_specifier_res.top().type = GET_VOID;
+    }
     else if (node.type_name == "auto")
     {
         throw "`auto` is not implemented";
@@ -218,7 +249,7 @@ void CminusfBuilder::visit(ASTCompoundStmt &node)
     for (auto &&stmt : node.statement_list)
     {
         stmt->accept(*this);
-        if (isTerminalStmt)
+        if (is_terminal_stmt)
             break;
     }
     scope.exit();
@@ -234,11 +265,55 @@ void CminusfBuilder::visit(ASTExpressionStmt &node)
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
     cerr << "Enter ASTSelectionStmt\n";
+    auto exitBB = new_basic_block();
+    auto trueBB = new_basic_block();
+    auto falseBB = node.else_statement ? new_basic_block() : exitBB;
+    node.expression->accept(*this);
+    auto cond_res = cal_stack.top();
+    cal_stack.pop();
+    // compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(get_r_value(cond_res), trueBB, falseBB);
+    builder->set_insert_point(trueBB);
+    node.if_statement->accept(*this);
+    auto if_stmt_terminate = is_terminal_stmt;
+    if (!is_terminal_stmt)
+        builder->create_br(exitBB);
+    is_terminal_stmt = false;
+    if (node.else_statement.has_value())
+    {
+        builder->set_insert_point(falseBB);
+        node.else_statement.value()->accept(*this);
+        if (!is_terminal_stmt)
+            builder->create_br(exitBB);
+        is_terminal_stmt = is_terminal_stmt && if_stmt_terminate;
+    }
+    if (!is_terminal_stmt)
+        builder->set_insert_point(exitBB);
+    else
+        function_nest.top()->remove(exitBB);
 }
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
     cerr << "Enter ASTIterationStmt\n";
+    auto condBB = new_basic_block();
+    auto loopBodyBB = new_basic_block();
+    auto exitBB = new_basic_block();
+    builder->create_br(condBB);
+    builder->set_insert_point(condBB);
+    node.expression->accept(*this);
+    auto cond_res = cal_stack.top();
+    cal_stack.pop();
+    // compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(get_r_value(cond_res), loopBodyBB, exitBB);
+    builder->set_insert_point(loopBodyBB);
+    node.statement->accept(*this);
+    if (is_terminal_stmt)
+        is_terminal_stmt = false;
+    else
+        builder->create_br(condBB);
+
+    builder->set_insert_point(exitBB);
 }
 
 void CminusfBuilder::visit(ASTReturnStmt &node)
@@ -262,7 +337,7 @@ void CminusfBuilder::visit(ASTReturnStmt &node)
     }
     else
         builder->create_void_ret();
-    isTerminalStmt = true;
+    is_terminal_stmt = true;
 }
 
 void CminusfBuilder::visit(ASTVar &node)
@@ -295,6 +370,15 @@ void CminusfBuilder::visit(ASTNum &node)
     else
         num = CONST_FP(node.num.f);
     cal_stack.push(ValueInfo{num});
+}
+
+void CminusfBuilder::visit(ASTReinterpretCast &node)
+{
+    node.obj_type->accept(*this);
+    auto obj_type = pop(var_decl_result);
+    node.src_expression->accept(*this);
+    auto src_expressin = get_r_value(pop(cal_stack));
+    cal_stack.push({builder->create_bitcast(src_expressin, obj_type.type)});
 }
 
 void CminusfBuilder::visit(ASTCall &node)
@@ -333,7 +417,7 @@ void CminusfBuilder::visit(ASTMemberAccess &node)
 void CminusfBuilder::visit(ASTUnaryAddExpression &node)
 {
     cerr << "Enter ASTUnaryAddExpression\n";
-    // TODO
+    // TODO Unary add operation
     throw "Unary additive operators are not implemented yet";
 }
 
