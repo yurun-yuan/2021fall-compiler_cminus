@@ -1,7 +1,9 @@
 #include "User.h"
 #include <cassert>
+#include <iostream>
 
-User::User(Type *ty, const std::string &name , unsigned num_ops )
+
+User::User(Type *ty, const std::string &name, unsigned num_ops)
     : Value(ty, name), num_ops_(num_ops)
 {
     // if (num_ops_ > 0)
@@ -9,7 +11,7 @@ User::User(Type *ty, const std::string &name , unsigned num_ops )
     operands_.resize(num_ops_, nullptr);
 }
 
-std::vector<Value *>& User::get_operands()
+std::vector<Value *> &User::get_operands()
 {
     return operands_;
 }
@@ -23,13 +25,13 @@ void User::set_operand(unsigned i, Value *v)
 {
     assert(i < num_ops_ && "set_operand out of index");
     // assert(operands_[i] == nullptr && "ith operand is not null");
-    operands_[i] = v;  
+    operands_[i] = v;
     v->add_use(this, i);
 }
 
-void User::add_operand( Value *v)
+void User::add_operand(Value *v)
 {
-    operands_.push_back(v);  
+    operands_.push_back(v);
     v->add_use(this, num_ops_);
     num_ops_++;
 }
@@ -41,16 +43,19 @@ unsigned User::get_num_operand() const
 
 void User::remove_use_of_ops()
 {
-    for (auto op : operands_) {
+    for (auto op : operands_)
+    {
         op->remove_use(this);
     }
 }
 
-void User::remove_operands(int index1,int index2){
-    for(int i=index1;i<=index2;i++){
+void User::remove_operands(int index1, int index2)
+{
+    for (int i = index1; i <= index2; i++)
+    {
         operands_[i]->remove_use(this);
     }
-    operands_.erase(operands_.begin()+index1,operands_.begin()+index2+1);
+    operands_.erase(operands_.begin() + index1, operands_.begin() + index2 + 1);
     // std::cout<<operands_.size()<<std::endl;
-    num_ops_=operands_.size();
+    num_ops_ = operands_.size();
 }

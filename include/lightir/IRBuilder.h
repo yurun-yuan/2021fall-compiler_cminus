@@ -27,10 +27,16 @@ public:
     CmpInst *create_icmp_lt( Value *lhs, Value *rhs){ return CmpInst::create_cmp(CmpInst::LT, lhs, rhs, this->BB_, m_); }
     CmpInst *create_icmp_le( Value *lhs, Value *rhs){ return CmpInst::create_cmp(CmpInst::LE, lhs, rhs, this->BB_, m_); }
 
-    CallInst *create_call(Value *func, std::vector<Value *> args)
-    { 
-        assert( dynamic_cast<Function *>(func) && "func must be Function * type"); 
-        return CallInst::create(static_cast<Function *>(func) ,args, this->BB_); 
+    /**
+     * @brief Create a call object
+     * 
+     * Pass a pointer for the callee to write the return value into
+     * if the return value is of structure type. 
+     */
+    CallInst *create_call(Value *func, std::vector<Value *> args, Value* return_value=nullptr)
+    {
+        // assert( dynamic_cast<Function *>(func) && "func must be Function * type"); 
+        return CallInst::create(func ,args, this->BB_, return_value); 
     }
     
     BranchInst *create_br(BasicBlock *if_true){ return BranchInst::create_br(if_true, this->BB_); }
@@ -66,6 +72,8 @@ public:
     BinaryInst *create_fsub( Value *lhs, Value *rhs){ return BinaryInst::create_fsub( lhs, rhs, this->BB_, m_);}
     BinaryInst *create_fmul( Value *lhs, Value *rhs){ return BinaryInst::create_fmul( lhs, rhs, this->BB_, m_);}
     BinaryInst *create_fdiv( Value *lhs, Value *rhs){ return BinaryInst::create_fdiv( lhs, rhs, this->BB_, m_);}
+
+    BitcastInst *create_bitcast(Value *src, Type *target_type) { return BitcastInst::create_bitcast(src, target_type, this->BB_); }
 };
 
 #endif // SYSYC_IRBUILDER_H

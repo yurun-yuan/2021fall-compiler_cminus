@@ -1,582 +1,479 @@
-/*
- * 声明：本代码为 2021 秋 中国科大编译原理（李诚）课程实验参考实现。
- * 请不要以任何方式，将本代码上传到可以公开访问的站点或仓库
-*/
-
 #include "cminusf_builder.hpp"
 
-#define CONST_FP(num) \
-    ConstantFP::get((float)num, module.get())
-#define CONST_INT(num) \
-    ConstantInt::get(num, module.get())
-
-// You can define global variables here
-// to store state
-
-// store temporary value
-Value *tmp_val = nullptr;
-// whether require lvalue
-bool require_lvalue = false;
-// function that is being built
-Function *cur_fun = nullptr;
-// detect scope pre-enter (for elegance only)
-bool pre_enter_scope = false;
-
-// types
-Type *VOID_T;
-Type *INT1_T;
-Type *INT32_T;
-Type *INT32PTR_T;
-Type *FLOAT_T;
-Type *FLOATPTR_T;
-
-bool promote(IRBuilder *builder, Value **l_val_p, Value **r_val_p)
-{
-    bool is_int;
-    auto &l_val = *l_val_p;
-    auto &r_val = *r_val_p;
-    if (l_val->get_type() == r_val->get_type())
-    {
-        is_int = l_val->get_type()->is_integer_type();
-    }
-    else
-    {
-        is_int = false;
-        if (l_val->get_type()->is_integer_type())
-            l_val = builder->create_sitofp(l_val, FLOAT_T);
-        else
-            r_val = builder->create_sitofp(r_val, FLOAT_T);
-    }
-    return is_int;
-}
-
-/*
- * use CMinusfBuilder::Scope to construct scopes
- * scope.enter: enter a new scope
- * scope.exit: exit current scope
- * scope.push: add a new binding to current scope
- * scope.find: find and return the value bound to the name
- */
+using namespace std::placeholders;
+using namespace std;
 
 void CminusfBuilder::visit(ASTProgram &node)
 {
-    VOID_T = Type::get_void_type(module.get());
-    INT1_T = Type::get_int1_type(module.get());
-    INT32_T = Type::get_int32_type(module.get());
-    INT32PTR_T = Type::get_int32_ptr_type(module.get());
-    FLOAT_T = Type::get_float_type(module.get());
-    FLOATPTR_T = Type::get_float_ptr_type(module.get());
-
-    for (auto decl : node.declarations)
-    {
-        decl->accept(*this);
-    }
+    std::for_each(node.definitions.begin(), node.definitions.end(), [&](auto &ptr)
+                  { ptr->accept(*this); });
 }
 
-void CminusfBuilder::visit(ASTNum &node)
-{
-    if (node.type == TYPE_INT)
-        tmp_val = CONST_INT(node.i_val);
-    else
-        tmp_val = CONST_FP(node.f_val);
-}
-
+/**
+ * NOTE Result is pushed to var_decl_result
+ */
 void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
-    Type *var_type;
-    if (node.type == TYPE_INT)
-        var_type = Type::get_int32_type(module.get());
-    else
-        var_type = Type::get_float_type(module.get());
-    if (node.num == nullptr)
+    cerr << "Enter ASTVarDeclaration\n";
+    push(var_decl_result); // NOTE Push var_decl_result
+    node.type_specifier->accept(*this);
+    var_decl_result.top().type = pop(type_specifier_res).type;
+    node.decl_expression->accept(*this);
+}
+
+void CminusfBuilder::visit(ASTDeclarationIdentifier &node)
+{
+    cerr << "Enter ASTDeclarationIdentifier\n";
+    if (node.is_ref)
+        var_decl_result.top().type = ReferenceType::get_reference_type(var_decl_result.top().type);
+    var_decl_result.top().id = node.id;
+}
+
+void CminusfBuilder::visit(ASTDeclarationDereference &node)
+{
+    cerr << "Enter ASTDeclarationDereference\n";
+    assert(var_decl_result.top().type->get_module());
+    var_decl_result.top().type = PointerType::get(var_decl_result.top().type);
+    node.expression->accept(*this);
+}
+
+void CminusfBuilder::visit(ASTDeclarationCall &node)
+{
+    cerr << "Enter ASTDeclarationCall\n";
+    auto return_type = var_decl_result.top().type;
+    std::vector<Type *> params_type;
+    vector<optional<string>> param_names;
+    for (auto &&param : node.params)
     {
-        if (scope.in_global())
+        param->accept(*this);
+        auto param_info = pop(var_decl_result); // NOTE var_decl_result consumed
+        param_names.push_back(param_info.id);
+        params_type.push_back(param_info.type);
+    }
+    latest_func_def_param_names = std::move(param_names);
+    var_decl_result.top().type = FunctionType::get(return_type, params_type, MOD);
+    node.callee->accept(*this);
+}
+
+void CminusfBuilder::visit(ASTDeclarationSubscript &node)
+{
+    cerr << "Enter ASTDeclarationSubscript\n";
+    assert(node.subscript.has_value());
+    auto element_type = var_decl_result.top().type;
+    var_decl_result.top().type = ArrayType::get(element_type, node.subscript.value());
+    node.array->accept(*this);
+}
+
+void CminusfBuilder::visit(ASTFunDefinition &node)
+{
+    cerr << "Enter ASTFunDefinition\n";
+    node.var_declaration->accept(*this);
+    auto function_prototype = pop(var_decl_result); // NOTE var_decl_result consumed
+    assert(function_prototype.type->is_function_type());
+    auto &params = dynamic_cast<FunctionType *>(function_prototype.type)->get_params();
+    assert(all_of(params.begin(), params.end(), [&](Type *type)
+                  { return !type->is_array_type(); }));
+    assert(function_prototype.id.has_value());
+    auto orig_name = function_prototype.id.value();
+    assert(all_of(latest_func_def_param_names.begin(), latest_func_def_param_names.end(), [&](auto id)
+                  { return id.has_value(); }));
+    bool is_operator_overload = false;
+    if (!struct_nest.empty()) // Member functions
+    {
+        if (!struct_nest.empty() &&
+            orig_name.size() == string("operator").size() + 1 &&
+            orig_name.starts_with("operator") &&
+            (orig_name.back() == '+' ||
+             orig_name.back() == '-' ||
+             orig_name.back() == '*' ||
+             orig_name.back() == '/'))
+            is_operator_overload = true;
+        auto orig_func_ty = dynamic_cast<FunctionType *>(function_prototype.type);
+        vector<Type *> params{PointerType::get(struct_nest.back())};
+        for (auto &&param_ty : orig_func_ty->get_params())
+            params.push_back(param_ty);
+        function_prototype.type = FunctionType::get(orig_func_ty->get_return_type(), params, MOD);
+        function_prototype.id = get_struct_id_prefix() + function_prototype.id.value();
+        latest_func_def_param_names.insert(latest_func_def_param_names.begin(), "this");
+    }
+    if (is_operator_overload)
+    {
+        function_prototype.id.value().pop_back();
+        function_prototype.id.value() += '.';
+        if (orig_name.back() == '+')
+            function_prototype.id.value() += "plus";
+        else if (orig_name.back() == '-')
+            function_prototype.id.value() += "minus";
+        else if (orig_name.back() == '*')
+            function_prototype.id.value() += "multiply";
+        else if (orig_name.back() == '/')
+            function_prototype.id.value() += "divide";
+    }
+    Function *func = Function::create(dynamic_cast<FunctionType *>(function_prototype.type), function_prototype.id.value(), MOD);
+    scope.push(function_prototype.id.value(), func);
+
+    if (is_operator_overload)
+        // Operator overloading
+        operator_overload_table[{orig_name.back(), struct_nest.back()}] = func;
+
+    function_nest.push(func);
+
+    compound_stmt_is_func_body = true;
+    auto bb = BasicBlock::create(MOD, "entry", func);
+    builder->set_insert_point(bb);
+
+    node.function_body->accept(*this);
+
+    if (!is_terminal_stmt)
+    {
+        if (function_nest.top()->get_return_type() != GET_VOID)
+            throw "Non void function without return statement is forbidden";
+        else
         {
-            auto initializer = ConstantZero::get(var_type, module.get());
-            auto var = GlobalVariable::create(
-                node.id,
-                module.get(),
-                var_type,
-                false,
-                initializer);
-            scope.push(node.id, var);
+            is_terminal_stmt = true;
+            builder->create_void_ret();
+        }
+    }
+    function_nest.pop();
+    is_terminal_stmt = false;
+}
+
+/**
+ * NOTE NOT for member declarations in structures. 
+ */
+void CminusfBuilder::visit(ASTVarDefinition &node)
+{
+    cerr << "Enter ASTVarDefinition\n";
+
+    node.var_declaration->accept(*this);
+    auto var_declaration = pop(var_decl_result); // NOTE consumed
+
+    ValueInfo init_value;
+    if (node.init_value.has_value())
+    {
+        node.init_value.value()->accept(*this);
+        init_value = pop(cal_stack);
+    }
+
+    // TODO Support `auto`
+
+    if (var_declaration.id.has_value())
+        create_construct(var_declaration.id.value(), var_declaration.type, init_value);
+}
+
+/**
+ * @brief Push to type_specifier_res
+ */
+void CminusfBuilder::visit(ASTStructSpecification &node)
+{
+    cerr << "Enter ASTStructSpecification\n";
+    auto struct_id = node.struct_id.value_or("anonymous_struct." + to_string(anonymous_struct_name_cnt++));
+    vector<ASTVarDefinition *> var_members_def;
+    vector<ASTFunDefinition *> fun_members_def;
+    for (auto def : node.definitions)
+    {
+        if (dynamic_cast<ASTVarDefinition *>(def.get()))
+        {
+            var_members_def.push_back(dynamic_cast<ASTVarDefinition *>(def.get()));
         }
         else
         {
-            auto var = builder->create_alloca(var_type);
-            scope.push(node.id, var);
+            assert(dynamic_cast<ASTFunDefinition *>(def.get()));
+            fun_members_def.push_back(dynamic_cast<ASTFunDefinition *>(def.get()));
         }
+    }
+    vector<StructType::StructMember> var_members;
+    for (auto var_member_def : var_members_def)
+    {
+        var_member_def->var_declaration->accept(*this);
+        auto var_member_decl = pop(var_decl_result);
+        assert(var_member_decl.id.has_value());
+        var_members.push_back({var_member_decl.type, var_member_decl.id.value()});
+        // TODO In-structure initialization
+    }
+
+    MOD->add_struct(struct_id, std::move(var_members));
+    auto struct_type = StructType::get(struct_id, MOD);
+
+    struct_nest.push_back(struct_type);
+    for (auto func_member_def : fun_members_def)
+        func_member_def->accept(*this);
+    struct_nest.pop_back();
+
+    type_specifier_res.push({struct_type});
+}
+
+/**
+ * @brief Push to type_specifier_res
+ */
+void CminusfBuilder::visit(ASTNamedType &node)
+{
+    cerr << "Enter ASTNamedType\n";
+    push(type_specifier_res);
+    if (node.type_name == "int")
+    {
+        type_specifier_res.top().type = GET_INT32;
+    }
+    else if (node.type_name == "float")
+    {
+        type_specifier_res.top().type = GET_FLOAT;
+    }
+    else if (node.type_name == "void")
+    {
+        type_specifier_res.top().type = GET_VOID;
+    }
+    else if (node.type_name == "auto")
+    {
+        throw "`auto` is not implemented";
     }
     else
     {
-        auto *array_type = ArrayType::get(var_type, node.num->i_val);
-        if (scope.in_global())
-        {
-            auto initializer = ConstantZero::get(array_type, module.get());
-            auto var = GlobalVariable::create(
-                node.id,
-                module.get(),
-                array_type,
-                false,
-                initializer);
-            scope.push(node.id, var);
-        }
-        else
-        {
-            auto var = builder->create_alloca(array_type);
-            scope.push(node.id, var);
-        }
+        type_specifier_res.top().type = module->get_struct_type(node.type_name);
     }
 }
 
-void CminusfBuilder::visit(ASTFunDeclaration &node)
+void CminusfBuilder::visit(ASTCompoundStmt &node)
 {
-    FunctionType *fun_type;
-    Type *ret_type;
-    std::vector<Type *> param_types;
-    if (node.type == TYPE_INT)
-        ret_type = INT32_T;
-    else if (node.type == TYPE_FLOAT)
-        ret_type = FLOAT_T;
-    else
-        ret_type = VOID_T;
-
-    for (auto &param : node.params)
-    {
-        if (param->type == TYPE_INT)
-        {
-            if (param->isarray)
-            {
-                param_types.push_back(INT32PTR_T);
-            }
-            else
-            {
-                param_types.push_back(INT32_T);
-            }
-        }
-        else
-        {
-            if (param->isarray)
-            {
-                param_types.push_back(FLOATPTR_T);
-            }
-            else
-            {
-                param_types.push_back(FLOAT_T);
-            }
-        }
-    }
-
-    fun_type = FunctionType::get(ret_type, param_types);
-    auto fun =
-        Function::create(
-            fun_type,
-            node.id,
-            module.get());
-    scope.push(node.id, fun);
-    cur_fun = fun;
-    auto funBB = BasicBlock::create(module.get(), "entry", fun);
-    builder->set_insert_point(funBB);
+    cerr << "Enter ASTCompoundStmt\n";
     scope.enter();
-    pre_enter_scope = true;
-    std::vector<Value *> args;
-    for (auto arg = fun->arg_begin(); arg != fun->arg_end(); arg++)
+    bool this_is_func_body = compound_stmt_is_func_body;
+    if (compound_stmt_is_func_body) // This compoundStmt is a function body
     {
-        args.push_back(*arg);
+        auto param_name_iter = latest_func_def_param_names.begin();
+        auto param_type_iter = function_nest.top()->get_function_type()->get_params().begin();
+        auto arg_iter = function_nest.top()->get_args().begin();
+        for (; arg_iter != function_nest.top()->get_args().end(); arg_iter++, param_name_iter++, param_type_iter++)
+            create_construct(param_name_iter->value(), *param_type_iter, {*arg_iter, (*param_type_iter)->is_struct_type()});
+        compound_stmt_is_func_body = false;
     }
-    for (int i = 0; i < node.params.size(); ++i)
+    for (auto &&stmt : node.statement_list)
     {
-        if (node.params[i]->isarray)
-        {
-            Value *array_alloc;
-            if (node.params[i]->type == TYPE_INT)
-                array_alloc = builder->create_alloca(INT32PTR_T);
-            else
-                array_alloc = builder->create_alloca(FLOATPTR_T);
-            builder->create_store(args[i], array_alloc);
-            scope.push(node.params[i]->id, array_alloc);
-        }
-        else
-        {
-            Value *alloc;
-            if (node.params[i]->type == TYPE_INT)
-                alloc = builder->create_alloca(INT32_T);
-            else
-                alloc = builder->create_alloca(FLOAT_T);
-            builder->create_store(args[i], alloc);
-            scope.push(node.params[i]->id, alloc);
-        }
-    }
-    node.compound_stmt->accept(*this);
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-    {
-        if (cur_fun->get_return_type()->is_void_type())
-            builder->create_void_ret();
-        else if (cur_fun->get_return_type()->is_float_type())
-            builder->create_ret(CONST_FP(0.));
-        else
-            builder->create_ret(CONST_INT(0));
+        stmt->accept(*this);
+        if (is_terminal_stmt)
+            break;
     }
     scope.exit();
 }
 
-void CminusfBuilder::visit(ASTParam &node) {}
-
-void CminusfBuilder::visit(ASTCompoundStmt &node)
-{
-    bool need_exit_scope = !pre_enter_scope;
-    if (pre_enter_scope)
-    {
-        pre_enter_scope = false;
-    }
-    else
-    {
-        scope.enter();
-    }
-
-    for (auto &decl : node.local_declarations)
-    {
-        decl->accept(*this);
-    }
-
-    for (auto &stmt : node.statement_list)
-    {
-        stmt->accept(*this);
-        if (builder->get_insert_block()->get_terminator() != nullptr)
-            break;
-    }
-
-    if (need_exit_scope)
-    {
-        scope.exit();
-    }
-}
-
 void CminusfBuilder::visit(ASTExpressionStmt &node)
 {
-    if (node.expression != nullptr)
-        node.expression->accept(*this);
+    cerr << "Enter ASTExpressionStmt\n";
+    if (node.expression.has_value())
+        node.expression.value()->accept(*this);
 }
 
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
+    cerr << "Enter ASTSelectionStmt\n";
+    auto exitBB = new_basic_block();
+    auto trueBB = new_basic_block();
+    auto falseBB = node.else_statement ? new_basic_block() : exitBB;
     node.expression->accept(*this);
-    auto ret_val = tmp_val;
-    auto trueBB = BasicBlock::create(module.get(), "", cur_fun);
-    auto falseBB = BasicBlock::create(module.get(), "", cur_fun);
-    auto contBB = BasicBlock::create(module.get(), "", cur_fun);
-    Value *cond_val;
-    if (ret_val->get_type()->is_integer_type())
-        cond_val = builder->create_icmp_ne(ret_val, CONST_INT(0));
-    else
-        cond_val = builder->create_fcmp_ne(ret_val, CONST_FP(0.));
-
-    if (node.else_statement == nullptr)
-    {
-        builder->create_cond_br(cond_val, trueBB, contBB);
-    }
-    else
-    {
-        builder->create_cond_br(cond_val, trueBB, falseBB);
-    }
+    auto cond_res = cal_stack.top();
+    cal_stack.pop();
+    // compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(get_r_value(cond_res), trueBB, falseBB);
     builder->set_insert_point(trueBB);
     node.if_statement->accept(*this);
-
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-        builder->create_br(contBB);
-
-    if (node.else_statement == nullptr)
-    {
-        falseBB->erase_from_parent();
-    }
-    else
+    auto if_stmt_terminate = is_terminal_stmt;
+    if (!is_terminal_stmt)
+        builder->create_br(exitBB);
+    is_terminal_stmt = false;
+    if (node.else_statement.has_value())
     {
         builder->set_insert_point(falseBB);
-        node.else_statement->accept(*this);
-        if (builder->get_insert_block()->get_terminator() == nullptr)
-            builder->create_br(contBB);
+        node.else_statement.value()->accept(*this);
+        if (!is_terminal_stmt)
+            builder->create_br(exitBB);
+        is_terminal_stmt = is_terminal_stmt && if_stmt_terminate;
     }
-
-    builder->set_insert_point(contBB);
+    if (!is_terminal_stmt)
+        builder->set_insert_point(exitBB);
+    else
+        function_nest.top()->remove(exitBB);
 }
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
-    auto exprBB = BasicBlock::create(module.get(), "", cur_fun);
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-        builder->create_br(exprBB);
-    builder->set_insert_point(exprBB);
+    cerr << "Enter ASTIterationStmt\n";
+    auto condBB = new_basic_block();
+    auto loopBodyBB = new_basic_block();
+    auto exitBB = new_basic_block();
+    builder->create_br(condBB);
+    builder->set_insert_point(condBB);
     node.expression->accept(*this);
-    auto ret_val = tmp_val;
-    auto trueBB = BasicBlock::create(module.get(), "", cur_fun);
-    auto contBB = BasicBlock::create(module.get(), "", cur_fun);
-    Value *cond_val;
-    if (ret_val->get_type()->is_integer_type())
-        cond_val = builder->create_icmp_ne(ret_val, CONST_INT(0));
-    else
-        cond_val = builder->create_fcmp_ne(ret_val, CONST_FP(0.));
-
-    builder->create_cond_br(cond_val, trueBB, contBB);
-    builder->set_insert_point(trueBB);
+    auto cond_res = cal_stack.top();
+    cal_stack.pop();
+    // compulsiveTypeConvert(cond_res, GET_BOOL);
+    builder->create_cond_br(get_r_value(cond_res), loopBodyBB, exitBB);
+    builder->set_insert_point(loopBodyBB);
     node.statement->accept(*this);
-    if (builder->get_insert_block()->get_terminator() == nullptr)
-        builder->create_br(exprBB);
-    builder->set_insert_point(contBB);
+    if (is_terminal_stmt)
+        is_terminal_stmt = false;
+    else
+        builder->create_br(condBB);
+
+    builder->set_insert_point(exitBB);
 }
 
 void CminusfBuilder::visit(ASTReturnStmt &node)
 {
-    if (node.expression == nullptr)
+    cerr << "Enter ASTReturnStmt\n";
+    if (node.expression.has_value())
     {
-        builder->create_void_ret();
+        node.expression.value()->accept(*this);
+        auto ret_value = pop(cal_stack);
+        if (function_nest.top()->get_return_type()->is_struct_type())
+        {
+            assert(ret_value.has_value() &&
+                   ret_value.value->get_type()->is_pointer_type() &&
+                   dynamic_cast<PointerType *>(ret_value.value->get_type())->get_element_type()->is_struct_type() &&
+                   ret_value.is_lvalue);
+            create_assign(function_nest.top()->get_ret(), ret_value);
+            builder->create_void_ret();
+        }
+        else
+            builder->create_ret(get_r_value(ret_value));
     }
     else
-    {
-        auto fun_ret_type = cur_fun->get_function_type()->get_return_type();
-        node.expression->accept(*this);
-        if (fun_ret_type != tmp_val->get_type())
-        {
-            if (fun_ret_type->is_integer_type())
-                tmp_val = builder->create_fptosi(tmp_val, INT32_T);
-            else
-                tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
-        }
-
-        builder->create_ret(tmp_val);
-    }
+        builder->create_void_ret();
+    is_terminal_stmt = true;
 }
 
 void CminusfBuilder::visit(ASTVar &node)
 {
-    auto var = scope.find(node.id);
-    assert(var != nullptr);
-    auto is_int = var->get_type()->get_pointer_element_type()->is_integer_type();
-    auto is_float = var->get_type()->get_pointer_element_type()->is_float_type();
-    auto is_ptr = var->get_type()->get_pointer_element_type()->is_pointer_type();
-    bool should_return_lvalue = require_lvalue;
-    require_lvalue = false;
-    if (node.expression == nullptr)
+    cerr << "Enter ASTVar\n";
+    auto var = scope.find(node.var_id);
+    if (var->get_type()->is_function_type())
     {
-        if (should_return_lvalue)
-        {
-            tmp_val = var;
-            require_lvalue = false;
-        }
-        else
-        {
-            if (is_int || is_float || is_ptr)
-            {
-                tmp_val = builder->create_load(var);
-            }
-            else
-            {
-                tmp_val = builder->create_gep(var, {CONST_INT(0), CONST_INT(0)});
-            }
-        }
+        cal_stack.push({var, false});
+    }
+    else if (var->get_type()->get_pointer_element_type()->is_array_type()) // is of array type
+    {
+        auto firstElemAddr = builder->create_gep(var, {CONST_INT(0), CONST_INT(0)});
+        cal_stack.push({firstElemAddr, false});
+    }
+    else if (var->get_type()->get_pointer_element_type()->is_reference())
+    {
+        cal_stack.push({builder->create_load(var), true});
     }
     else
-    {
-        node.expression->accept(*this);
-        auto val = tmp_val;
-        Value *is_neg;
-        auto exceptBB = BasicBlock::create(module.get(), "", cur_fun);
-        auto contBB = BasicBlock::create(module.get(), "", cur_fun);
-        if (val->get_type()->is_float_type())
-            val = builder->create_fptosi(val, INT32_T);
-
-        is_neg = builder->create_icmp_lt(val, CONST_INT(0));
-
-        builder->create_cond_br(is_neg, exceptBB, contBB);
-        builder->set_insert_point(exceptBB);
-        auto neg_idx_except_fun = scope.find("neg_idx_except");
-        builder->create_call(static_cast<Function *>(neg_idx_except_fun), {});
-        if (cur_fun->get_return_type()->is_void_type())
-            builder->create_void_ret();
-        else if (cur_fun->get_return_type()->is_float_type())
-            builder->create_ret(CONST_FP(0.));
-        else
-            builder->create_ret(CONST_INT(0));
-
-        builder->set_insert_point(contBB);
-        Value *tmp_ptr;
-        if (is_int || is_float)
-            tmp_ptr = builder->create_gep(var, {val});
-        else if (is_ptr)
-        {
-            auto array_load = builder->create_load(var);
-            tmp_ptr = builder->create_gep(array_load, {val});
-        }
-        else
-            tmp_ptr = builder->create_gep(var, {CONST_INT(0), val});
-        if (should_return_lvalue)
-        {
-            tmp_val = tmp_ptr;
-            require_lvalue = false;
-        }
-        else
-        {
-            tmp_val = builder->create_load(tmp_ptr);
-        }
-    }
+        cal_stack.push({var, true});
 }
 
-void CminusfBuilder::visit(ASTAssignExpression &node)
+void CminusfBuilder::visit(ASTNum &node)
 {
-    node.expression->accept(*this);
-    auto expr_result = tmp_val;
-    require_lvalue = true;
-    node.var->accept(*this);
-    auto var_addr = tmp_val;
-    if (var_addr->get_type()->get_pointer_element_type() != expr_result->get_type())
-    {
-        if (expr_result->get_type() == INT32_T)
-            expr_result = builder->create_sitofp(expr_result, FLOAT_T);
-        else
-            expr_result = builder->create_fptosi(expr_result, INT32_T);
-    }
-    builder->create_store(expr_result, var_addr);
-    tmp_val = expr_result;
-}
-
-void CminusfBuilder::visit(ASTSimpleExpression &node)
-{
-    if (node.additive_expression_r == nullptr)
-    {
-        node.additive_expression_l->accept(*this);
-    }
+    cerr << "Enter ASTNum\n";
+    Value *num;
+    if (node.num_type == TYPE_INT)
+        num = CONST_INT(node.num.i);
     else
-    {
-        node.additive_expression_l->accept(*this);
-        auto l_val = tmp_val;
-        node.additive_expression_r->accept(*this);
-        auto r_val = tmp_val;
-        bool is_int = promote(builder, &l_val, &r_val);
-        Value *cmp;
-        switch (node.op)
-        {
-        case OP_LT:
-            if (is_int)
-                cmp = builder->create_icmp_lt(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_lt(l_val, r_val);
-            break;
-        case OP_LE:
-            if (is_int)
-                cmp = builder->create_icmp_le(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_le(l_val, r_val);
-            break;
-        case OP_GE:
-            if (is_int)
-                cmp = builder->create_icmp_ge(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_ge(l_val, r_val);
-            break;
-        case OP_GT:
-            if (is_int)
-                cmp = builder->create_icmp_gt(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_gt(l_val, r_val);
-            break;
-        case OP_EQ:
-            if (is_int)
-                cmp = builder->create_icmp_eq(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_eq(l_val, r_val);
-            break;
-        case OP_NEQ:
-            if (is_int)
-                cmp = builder->create_icmp_ne(l_val, r_val);
-            else
-                cmp = builder->create_fcmp_ne(l_val, r_val);
-            break;
-        }
-
-        tmp_val = builder->create_zext(cmp, INT32_T);
-    }
+        num = CONST_FP(node.num.f);
+    cal_stack.push(ValueInfo{num});
 }
 
-void CminusfBuilder::visit(ASTAdditiveExpression &node)
+void CminusfBuilder::visit(ASTReinterpretCast &node)
 {
-    if (node.additive_expression == nullptr)
-    {
-        node.term->accept(*this);
-    }
-    else
-    {
-        node.additive_expression->accept(*this);
-        auto l_val = tmp_val;
-        node.term->accept(*this);
-        auto r_val = tmp_val;
-        bool is_int = promote(builder, &l_val, &r_val);
-        switch (node.op)
-        {
-        case OP_PLUS:
-            if (is_int)
-                tmp_val = builder->create_iadd(l_val, r_val);
-            else
-                tmp_val = builder->create_fadd(l_val, r_val);
-            break;
-        case OP_MINUS:
-            if (is_int)
-                tmp_val = builder->create_isub(l_val, r_val);
-            else
-                tmp_val = builder->create_fsub(l_val, r_val);
-            break;
-        }
-    }
-}
-
-void CminusfBuilder::visit(ASTTerm &node)
-{
-    if (node.term == nullptr)
-    {
-        node.factor->accept(*this);
-    }
-    else
-    {
-        node.term->accept(*this);
-        auto l_val = tmp_val;
-        node.factor->accept(*this);
-        auto r_val = tmp_val;
-        bool is_int = promote(builder, &l_val, &r_val);
-        switch (node.op)
-        {
-        case OP_MUL:
-            if (is_int)
-                tmp_val = builder->create_imul(l_val, r_val);
-            else
-                tmp_val = builder->create_fmul(l_val, r_val);
-            break;
-        case OP_DIV:
-            if (is_int)
-                tmp_val = builder->create_isdiv(l_val, r_val);
-            else
-                tmp_val = builder->create_fdiv(l_val, r_val);
-            break;
-        }
-    }
+    node.obj_type->accept(*this);
+    auto obj_type = pop(var_decl_result);
+    node.src_expression->accept(*this);
+    auto src_expressin = get_r_value(pop(cal_stack));
+    cal_stack.push({builder->create_bitcast(src_expressin, obj_type.type)});
 }
 
 void CminusfBuilder::visit(ASTCall &node)
 {
-    auto fun = static_cast<Function *>(scope.find(node.id));
-    std::vector<Value *> args;
-    auto param_type = fun->get_function_type()->param_begin();
-    for (auto &arg : node.args)
+    cerr << "Enter ASTCall\n";
+    node.callee->accept(*this);
+    auto callee = pop(cal_stack);
+    std::vector<ValueInfo> args;
+    for (auto arg : node.args)
     {
         arg->accept(*this);
-        if (!tmp_val->get_type()->is_pointer_type() &&
-            *param_type != tmp_val->get_type())
-        {
-            if (tmp_val->get_type()->is_integer_type())
-                tmp_val = builder->create_sitofp(tmp_val, FLOAT_T);
-            else
-                tmp_val = builder->create_fptosi(tmp_val, INT32_T);
-        }
-        args.push_back(tmp_val);
-        param_type++;
+        args.push_back(pop(cal_stack));
     }
 
-    tmp_val = builder->create_call(static_cast<Function *>(fun), args);
+    cal_stack.push(create_call(callee, std::move(args)));
+}
+
+void CminusfBuilder::visit(ASTSubscript &node)
+{
+    cerr << "Enter ASTSubscript\n";
+    node.array->accept(*this);
+    auto array = pop(cal_stack);
+    node.subscript->accept(*this);
+    auto subscript = pop(cal_stack);
+    cal_stack.push(create_subscript(array, subscript));
+}
+
+void CminusfBuilder::visit(ASTMemberAccess &node)
+{
+    cerr << "Enter ASTMemberAccess\n";
+    node.object->accept(*this);
+    auto object = pop(cal_stack);
+    cal_stack.push(create_member_access(object, node.member_id));
+}
+
+void CminusfBuilder::visit(ASTUnaryAddExpression &node)
+{
+    cerr << "Enter ASTUnaryAddExpression\n";
+    // TODO Unary add operation
+    throw "Unary additive operators are not implemented yet";
+}
+
+void CminusfBuilder::visit(ASTDereference &node)
+{
+    cerr << "Enter ASTDereference\n";
+    node.expression->accept(*this);
+    auto operand = pop(cal_stack);
+    cal_stack.push(create_dereference(operand));
+}
+
+void CminusfBuilder::visit(ASTAddressof &node)
+{
+    cerr << "Enter ASTAddressof\n";
+    node.expression->accept(*this);
+    auto operand = pop(cal_stack);
+    cal_stack.push(create_addressof(operand));
+}
+
+void CminusfBuilder::visit(ASTMultiplicativeExpression &node)
+{
+    cerr << "Enter ASTMultiplicativeExpression\n";
+    node.l_expression->accept(*this);
+    auto loperand = pop(cal_stack);
+    node.r_expression->accept(*this);
+    auto roperand = pop(cal_stack);
+    cal_stack.push(create_mul(loperand, roperand, node.op));
+}
+
+void CminusfBuilder::visit(ASTAdditiveExpression &node)
+{
+    cerr << "Enter ASTAdditiveExpression\n";
+    node.l_expression->accept(*this);
+    auto loperand = pop(cal_stack);
+    node.r_expression->accept(*this);
+    auto roperand = pop(cal_stack);
+    cal_stack.push(create_add(loperand, roperand, node.op));
+}
+
+void CminusfBuilder::visit(ASTRelationalExpression &node)
+{
+    cerr << "Enter ASTRelationalExpression\n";
+    node.l_expression->accept(*this);
+    auto loperand = pop(cal_stack);
+    node.r_expression->accept(*this);
+    auto roperand = pop(cal_stack);
+    cal_stack.push(create_rel(loperand, roperand, node.op));
+}
+
+void CminusfBuilder::visit(ASTAssignExpression &node)
+{
+    cerr << "Enter ASTAssignExpression\n";
+    node.l_expression->accept(*this);
+    auto loperand = pop(cal_stack);
+    node.r_expression->accept(*this);
+    auto roperand = pop(cal_stack);
+    assert(loperand.is_lvalue);
+    cal_stack.push(create_assign(loperand.value, roperand));
 }
