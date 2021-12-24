@@ -483,8 +483,14 @@ private:
 
     ValueInfo create_mul(ValueInfo loperand, ValueInfo roperand, MulOp op)
     {
-        // TODO
-        return ValueInfo{mulFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+        char c_op = op == MulOp::OP_MUL ? '*' : '/';
+        if (operator_overload_table.find({c_op, loperand.get_type()}) != operator_overload_table.end())
+        {
+            auto overloaded_func = operator_overload_table[{c_op, loperand.get_type()}];
+            return native_call(overloaded_func, {create_addressof(loperand), roperand});
+        }
+        else
+            return ValueInfo{mulFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
     }
 
     ValueInfo create_add(ValueInfo loperand, ValueInfo roperand, AddOp op)
