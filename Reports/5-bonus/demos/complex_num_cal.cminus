@@ -1,0 +1,86 @@
+struct complex_num
+{
+    float r;
+    float i;
+
+    float modulus_sqare()
+    {
+        return (*this).r * (*this).r + (*this).i * (*this).i;
+    }
+    struct complex_num conjugate()
+    {
+        struct complex_num res;
+        res.r = (*this).r;
+        res.i = 0.0 - (*this).i;
+        return res;
+    }
+    struct complex_num operator+(struct complex_num rhs)
+    {
+        struct complex_num res;
+        res.r = (*this).r + rhs.r;
+        res.i = (*this).i + rhs.i;
+        return res;
+    }
+    struct complex_num operator-(struct complex_num rhs)
+    {
+        struct complex_num res;
+        res.r = (*this).r - rhs.r;
+        res.i = (*this).i - rhs.i;
+        return res;
+    }
+    struct complex_num operator*(struct complex_num rhs)
+    {
+        struct complex_num res;
+        res.r = (*this).r * rhs.r - (*this).i * rhs.i;
+        res.i = (*this).r * rhs.i + (*this).i * rhs.r;
+        return res;
+    }
+    struct complex_num operator/(struct complex_num rhs)
+    {
+        struct complex_num res;
+        float denominator = rhs.modulus_sqare();
+        res = (*this) * rhs.conjugate();
+        res.r = res.r / denominator;
+        res.i = res.i / denominator;
+        return res;
+    }
+};
+
+struct complex_num read_complex_num()
+{
+    struct complex_num num;
+    num.r = input_float();
+    num.i = input_float();
+    return num;
+}
+
+void output_complex_num(struct complex_num num)
+{
+    print_float(num.r);
+    print_char(32);
+    println_float(num.i);
+}
+
+int main()
+{
+    struct complex_num lhs;
+    struct complex_num rhs;
+    int op;
+    lhs = read_complex_num();
+    op = input_char();
+    rhs = read_complex_num();
+    if (op == 43) /* plus */
+        output_complex_num(lhs + rhs);
+    else if (op == 45) /* minus */
+        output_complex_num(lhs - rhs);
+    else if (op == 42) /* multiply */
+        output_complex_num(lhs * rhs);
+    else if (op == 47) /* divide */
+        output_complex_num(lhs / rhs);
+    else
+    {
+        print_char(63);
+        print_char(10);
+    }
+    return 0;
+}
