@@ -122,33 +122,42 @@ public:
                                     "input_int",
                                     module.get()));
         scope.push("input_float", Function::create(
-                                    FunctionType::get(TyFloat, {}, MOD),
-                                    "input_float",
-                                    module.get()));
+                                      FunctionType::get(TyFloat, {}, MOD),
+                                      "input_float",
+                                      module.get()));
         scope.push("input_char", Function::create(
                                      FunctionType::get(TyInt32, {}, MOD),
                                      "input_char",
                                      module.get()));
         scope.push("print_int", Function::create(
-                                     FunctionType::get(TyVoid, {TyInt32}, MOD),
-                                     "print_int",
-                                     module.get()));
-        scope.push("println_int", Function::create(
                                     FunctionType::get(TyVoid, {TyInt32}, MOD),
-                                    "println_int",
+                                    "print_int",
                                     module.get()));
-        scope.push("print_float", Function::create(
-                                        FunctionType::get(TyVoid, {TyFloat}, MOD),
-                                        "print_float",
-                                        module.get()));
-        scope.push("println_float", Function::create(
-                                      FunctionType::get(TyVoid, {TyFloat}, MOD),
-                                      "println_float",
-                                      module.get()));
-        scope.push("print_char", Function::create(
+        scope.push("println_int", Function::create(
                                       FunctionType::get(TyVoid, {TyInt32}, MOD),
-                                      "print_char",
+                                      "println_int",
                                       module.get()));
+        scope.push("print_float", Function::create(
+                                      FunctionType::get(TyVoid, {TyFloat}, MOD),
+                                      "print_float",
+                                      module.get()));
+        scope.push("println_float", Function::create(
+                                        FunctionType::get(TyVoid, {TyFloat}, MOD),
+                                        "println_float",
+                                        module.get()));
+        scope.push("print_char", Function::create(
+                                     FunctionType::get(TyVoid, {TyInt32}, MOD),
+                                     "print_char",
+                                     module.get()));
+
+        scope.push("allocate", Function::create(
+                                   FunctionType::get(PointerType::get(TyInt32), {TyInt32}, MOD),
+                                   "allocate",
+                                   module.get()));
+        scope.push("deallocate", Function::create(
+                                     FunctionType::get(TyVoid, {PointerType::get(TyInt32)}, MOD),
+                                     "deallocate",
+                                     module.get()));
 
         // Initialize function tables
         compulsiveTypeConvertTable = {{{GET_INT32, GET_BOOL}, ConvertorFuncType([&](Value *&origin)
@@ -392,7 +401,9 @@ private:
         }
         else // Default copy for scalar types
         {
-            builder->create_store(get_r_value(value), address);
+            auto true_value = get_r_value(value);
+            compulsiveTypeConvert(true_value, type);
+            builder->create_store(true_value, address);
             return ValueInfo{address, true};
         }
     }
@@ -490,7 +501,13 @@ private:
             return native_call(overloaded_func, {create_addressof(loperand), roperand});
         }
         else
-            return ValueInfo{mulFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+        {
+            auto l = get_r_value(loperand);
+            auto r = get_r_value(roperand);
+            augmentTypeConvert(l, r);
+            return ValueInfo{
+                mulFuncTable[{loperand.get_type(), op}](l, r)};
+        }
     }
 
     ValueInfo create_add(ValueInfo loperand, ValueInfo roperand, AddOp op)
@@ -501,9 +518,18 @@ private:
             auto overloaded_func = operator_overload_table[{c_op, loperand.get_type()}];
             return native_call(overloaded_func, {create_addressof(loperand), roperand});
         }
+        else if (loperand.get_type()->is_pointer_type() && roperand.get_type()->is_integer_type())
+        {
+            return ValueInfo{builder->create_gep(get_r_value(loperand), {get_r_value(roperand)}), false};
+        }
         else
+        {
+            auto l = get_r_value(loperand);
+            auto r = get_r_value(roperand);
+            augmentTypeConvert(l, r);
             return ValueInfo{
-                addFuncTable[{loperand.get_type(), op}](get_r_value(loperand), get_r_value(roperand))};
+                addFuncTable[{loperand.get_type(), op}](l, r)};
+        }
     }
 
     ValueInfo create_rel(ValueInfo loperand, ValueInfo roperand, RelOp op)
@@ -629,7 +655,7 @@ private:
      */
     void compulsiveTypeConvert(Value *&origin, Type *target)
     {
-        if (origin->get_type() != target)
+        if (origin->get_type() != target && !(origin->get_type()->is_function_type() && target->get_pointer_element_type()->is_function_type()))
             compulsiveTypeConvertTable[{origin->get_type(), target}](origin);
     }
 

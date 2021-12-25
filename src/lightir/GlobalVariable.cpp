@@ -32,5 +32,7 @@ std::string GlobalVariable::print()
         global_val_ir += " ";
         global_val_ir += this->get_init()->print();
     }
+    else
+        global_val_ir += "zeroinitializer";
     return global_val_ir;
 }

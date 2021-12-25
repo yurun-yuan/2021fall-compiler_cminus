@@ -379,7 +379,7 @@ Type *GetElementPtrInst::get_element_type(Value *ptr, std::vector<Value *> idxs)
 {
 
     Type *ty = ptr->get_type()->get_pointer_element_type();
-    assert("GetElementPtrInst ptr is wrong type" && (ty->is_array_type() || ty->is_integer_type() || ty->is_float_type() || ty->is_struct_type()));
+    assert("GetElementPtrInst ptr is wrong type" && (ty->is_array_type() || ty->is_integer_type() || ty->is_float_type() || ty->is_struct_type() || ty->is_pointer_type()));
     if (ty->is_array_type())
     {
         ArrayType *arr_ty = static_cast<ArrayType *>(ty);
@@ -396,7 +396,7 @@ Type *GetElementPtrInst::get_element_type(Value *ptr, std::vector<Value *> idxs)
             }
         }
     }
-    else if (ty->is_struct_type())
+    else if (ty->is_struct_type() && idxs.size() > 1)
     {
         assert(idxs.size() == 2 && "Currently only support 2-step gep for structures");
         auto element_idx = dynamic_cast<ConstantInt *>(idxs[1])->get_value();

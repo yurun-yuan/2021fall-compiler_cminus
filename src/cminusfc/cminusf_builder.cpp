@@ -14,7 +14,6 @@ void CminusfBuilder::visit(ASTProgram &node)
  */
 void CminusfBuilder::visit(ASTVarDeclaration &node)
 {
-    cerr << "Enter ASTVarDeclaration\n";
     push(var_decl_result); // NOTE Push var_decl_result
     node.type_specifier->accept(*this);
     var_decl_result.top().type = pop(type_specifier_res).type;
@@ -23,7 +22,6 @@ void CminusfBuilder::visit(ASTVarDeclaration &node)
 
 void CminusfBuilder::visit(ASTDeclarationIdentifier &node)
 {
-    cerr << "Enter ASTDeclarationIdentifier\n";
     if (node.is_ref)
         var_decl_result.top().type = ReferenceType::get_reference_type(var_decl_result.top().type);
     var_decl_result.top().id = node.id;
@@ -31,7 +29,6 @@ void CminusfBuilder::visit(ASTDeclarationIdentifier &node)
 
 void CminusfBuilder::visit(ASTDeclarationDereference &node)
 {
-    cerr << "Enter ASTDeclarationDereference\n";
     assert(var_decl_result.top().type->get_module());
     var_decl_result.top().type = PointerType::get(var_decl_result.top().type);
     node.expression->accept(*this);
@@ -39,7 +36,6 @@ void CminusfBuilder::visit(ASTDeclarationDereference &node)
 
 void CminusfBuilder::visit(ASTDeclarationCall &node)
 {
-    cerr << "Enter ASTDeclarationCall\n";
     auto return_type = var_decl_result.top().type;
     std::vector<Type *> params_type;
     vector<optional<string>> param_names;
@@ -57,7 +53,6 @@ void CminusfBuilder::visit(ASTDeclarationCall &node)
 
 void CminusfBuilder::visit(ASTDeclarationSubscript &node)
 {
-    cerr << "Enter ASTDeclarationSubscript\n";
     assert(node.subscript.has_value());
     auto element_type = var_decl_result.top().type;
     var_decl_result.top().type = ArrayType::get(element_type, node.subscript.value());
@@ -66,7 +61,6 @@ void CminusfBuilder::visit(ASTDeclarationSubscript &node)
 
 void CminusfBuilder::visit(ASTFunDefinition &node)
 {
-    cerr << "Enter ASTFunDefinition\n";
     node.var_declaration->accept(*this);
     auto function_prototype = pop(var_decl_result); // NOTE var_decl_result consumed
     assert(function_prototype.type->is_function_type());
@@ -143,8 +137,6 @@ void CminusfBuilder::visit(ASTFunDefinition &node)
  */
 void CminusfBuilder::visit(ASTVarDefinition &node)
 {
-    cerr << "Enter ASTVarDefinition\n";
-
     node.var_declaration->accept(*this);
     auto var_declaration = pop(var_decl_result); // NOTE consumed
 
@@ -166,7 +158,6 @@ void CminusfBuilder::visit(ASTVarDefinition &node)
  */
 void CminusfBuilder::visit(ASTStructSpecification &node)
 {
-    cerr << "Enter ASTStructSpecification\n";
     auto struct_id = node.struct_id.value_or("anonymous_struct." + to_string(anonymous_struct_name_cnt++));
     vector<ASTVarDefinition *> var_members_def;
     vector<ASTFunDefinition *> fun_members_def;
@@ -208,7 +199,6 @@ void CminusfBuilder::visit(ASTStructSpecification &node)
  */
 void CminusfBuilder::visit(ASTNamedType &node)
 {
-    cerr << "Enter ASTNamedType\n";
     push(type_specifier_res);
     if (node.type_name == "int")
     {
@@ -234,7 +224,6 @@ void CminusfBuilder::visit(ASTNamedType &node)
 
 void CminusfBuilder::visit(ASTCompoundStmt &node)
 {
-    cerr << "Enter ASTCompoundStmt\n";
     scope.enter();
     bool this_is_func_body = compound_stmt_is_func_body;
     if (compound_stmt_is_func_body) // This compoundStmt is a function body
@@ -257,14 +246,12 @@ void CminusfBuilder::visit(ASTCompoundStmt &node)
 
 void CminusfBuilder::visit(ASTExpressionStmt &node)
 {
-    cerr << "Enter ASTExpressionStmt\n";
     if (node.expression.has_value())
         node.expression.value()->accept(*this);
 }
 
 void CminusfBuilder::visit(ASTSelectionStmt &node)
 {
-    cerr << "Enter ASTSelectionStmt\n";
     auto exitBB = new_basic_block();
     auto trueBB = new_basic_block();
     auto falseBB = node.else_statement ? new_basic_block() : exitBB;
@@ -295,7 +282,6 @@ void CminusfBuilder::visit(ASTSelectionStmt &node)
 
 void CminusfBuilder::visit(ASTIterationStmt &node)
 {
-    cerr << "Enter ASTIterationStmt\n";
     auto condBB = new_basic_block();
     auto loopBodyBB = new_basic_block();
     auto exitBB = new_basic_block();
@@ -318,7 +304,6 @@ void CminusfBuilder::visit(ASTIterationStmt &node)
 
 void CminusfBuilder::visit(ASTReturnStmt &node)
 {
-    cerr << "Enter ASTReturnStmt\n";
     if (node.expression.has_value())
     {
         node.expression.value()->accept(*this);
@@ -342,7 +327,6 @@ void CminusfBuilder::visit(ASTReturnStmt &node)
 
 void CminusfBuilder::visit(ASTVar &node)
 {
-    cerr << "Enter ASTVar\n";
     auto var = scope.find(node.var_id);
     if (var->get_type()->is_function_type())
     {
@@ -363,7 +347,6 @@ void CminusfBuilder::visit(ASTVar &node)
 
 void CminusfBuilder::visit(ASTNum &node)
 {
-    cerr << "Enter ASTNum\n";
     Value *num;
     if (node.num_type == TYPE_INT)
         num = CONST_INT(node.num.i);
@@ -383,7 +366,6 @@ void CminusfBuilder::visit(ASTReinterpretCast &node)
 
 void CminusfBuilder::visit(ASTCall &node)
 {
-    cerr << "Enter ASTCall\n";
     node.callee->accept(*this);
     auto callee = pop(cal_stack);
     std::vector<ValueInfo> args;
@@ -398,7 +380,6 @@ void CminusfBuilder::visit(ASTCall &node)
 
 void CminusfBuilder::visit(ASTSubscript &node)
 {
-    cerr << "Enter ASTSubscript\n";
     node.array->accept(*this);
     auto array = pop(cal_stack);
     node.subscript->accept(*this);
@@ -408,7 +389,6 @@ void CminusfBuilder::visit(ASTSubscript &node)
 
 void CminusfBuilder::visit(ASTMemberAccess &node)
 {
-    cerr << "Enter ASTMemberAccess\n";
     node.object->accept(*this);
     auto object = pop(cal_stack);
     cal_stack.push(create_member_access(object, node.member_id));
@@ -416,14 +396,12 @@ void CminusfBuilder::visit(ASTMemberAccess &node)
 
 void CminusfBuilder::visit(ASTUnaryAddExpression &node)
 {
-    cerr << "Enter ASTUnaryAddExpression\n";
     // TODO Unary add operation
     throw "Unary additive operators are not implemented yet";
 }
 
 void CminusfBuilder::visit(ASTDereference &node)
 {
-    cerr << "Enter ASTDereference\n";
     node.expression->accept(*this);
     auto operand = pop(cal_stack);
     cal_stack.push(create_dereference(operand));
@@ -431,7 +409,6 @@ void CminusfBuilder::visit(ASTDereference &node)
 
 void CminusfBuilder::visit(ASTAddressof &node)
 {
-    cerr << "Enter ASTAddressof\n";
     node.expression->accept(*this);
     auto operand = pop(cal_stack);
     cal_stack.push(create_addressof(operand));
@@ -439,7 +416,6 @@ void CminusfBuilder::visit(ASTAddressof &node)
 
 void CminusfBuilder::visit(ASTMultiplicativeExpression &node)
 {
-    cerr << "Enter ASTMultiplicativeExpression\n";
     node.l_expression->accept(*this);
     auto loperand = pop(cal_stack);
     node.r_expression->accept(*this);
@@ -449,7 +425,6 @@ void CminusfBuilder::visit(ASTMultiplicativeExpression &node)
 
 void CminusfBuilder::visit(ASTAdditiveExpression &node)
 {
-    cerr << "Enter ASTAdditiveExpression\n";
     node.l_expression->accept(*this);
     auto loperand = pop(cal_stack);
     node.r_expression->accept(*this);
@@ -459,7 +434,6 @@ void CminusfBuilder::visit(ASTAdditiveExpression &node)
 
 void CminusfBuilder::visit(ASTRelationalExpression &node)
 {
-    cerr << "Enter ASTRelationalExpression\n";
     node.l_expression->accept(*this);
     auto loperand = pop(cal_stack);
     node.r_expression->accept(*this);
@@ -469,7 +443,6 @@ void CminusfBuilder::visit(ASTRelationalExpression &node)
 
 void CminusfBuilder::visit(ASTAssignExpression &node)
 {
-    cerr << "Enter ASTAssignExpression\n";
     node.l_expression->accept(*this);
     auto loperand = pop(cal_stack);
     node.r_expression->accept(*this);

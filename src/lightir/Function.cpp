@@ -127,7 +127,7 @@ std::string Function::print()
     if (struct_return_type())
         func_ir += "void";
     else
-        func_ir += get_return_type()->print();
+        func_ir += get_return_type()->get_print_type()->print();
     func_ir += " ";
     func_ir += print_as_op(this, false);
     func_ir += "(";

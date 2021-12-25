@@ -52,8 +52,18 @@ void print_char(int a)
     printf("%c", (char)a);
 }
 
-void neg_idx_except()
+// void neg_idx_except()
+// {
+//     printf("negative index exception\n");
+//     exit(0);
+// }
+
+int *allocate(int size)
 {
-    printf("negative index exception\n");
-    exit(0);
+    return (int *)malloc((size_t)size);
+}
+
+void deallocate(int *ptr)
+{
+    free((void *)ptr);
 }
