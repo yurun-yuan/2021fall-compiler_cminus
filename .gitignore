@@ -1,3 +1,5 @@
 build
 .vscode/settings.json
 tests/2-ir-gen-warmup/ta_gcd/gcd_array.ll
+Reports/5-bonus/demos/complex_num_cal
+Reports/5-bonus/demos/complex_num_cal.ll
