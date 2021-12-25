@@ -88,48 +88,262 @@ struct complex_num divide(struct complex_num *lhs, struct complex_num *rhs)
  */
 struct complex_num (*function_table[4])(struct complex_num *, struct complex_num *);
 
-struct complex_num read_complex_num()
+struct complex_num (*get_function(int op))(struct complex_num *, struct complex_num *)
 {
-    struct complex_num num;
-    num.real = input_float();
-    num.imaginary = input_float();
-    return num;
+    if (op == 43) /* plus */
+        op = 0;
+    else if (op == 45) /* minus */
+        op = 1;
+    else if (op == 42) /* multiply */
+        op = 2;
+    else
+        op = 3;
+
+    return function_table[op];
+}
+
+int is_add_op(int op)
+{
+    if (op == 43)
+        return 1;
+    if (op == 45)
+        return 1;
+    return 0;
+}
+
+int is_mul_op(int op)
+{
+    if (op == 42)
+        return 1;
+    if (op == 47)
+        return 1;
+    return 0;
+}
+
+int char_to_int(int c)
+{
+    if (c >= 48)
+        if (c <= 57)
+            return c - 48;
+    return 0 - 1;
+}
+
+struct complex_num read_complex_num(int **iter_ptr)
+{
+    struct complex_num res;
+    float num;
+    num = 0;
+    while (char_to_int(**iter_ptr) != 0 - 1)
+    {
+        num = num * 10 + char_to_int(**iter_ptr);
+        *iter_ptr = *iter_ptr + 1;
+    }
+    if (**iter_ptr == 105)
+    {
+        res.real = 0;
+        res.imaginary = num;
+        *iter_ptr = *iter_ptr + 1;
+    }
+    else
+    {
+        res.real = num;
+        res.imaginary = 0;
+    }
+    return res;
 }
 
 void output_complex_num(struct complex_num num)
 {
     print_float(num.real);
     print_char(32);
-    println_float(num.imaginary);
+    print_float(num.imaginary);
+    print_char(105);
+    print_char(10);
 }
 
+struct operand_stack
+{
+    struct complex_num *mem;
+    int sp;
+    void init(int size)
+    {
+        (*this).mem = reinterpret_cast<struct complex_num *>(allocate(size * 8));
+        (*this).sp = 0;
+    }
+    void drop()
+    {
+        deallocate(reinterpret_cast<int *>((*this).mem));
+    }
+    void push(struct complex_num elem)
+    {
+        (*this).mem[(*this).sp] = elem;
+        (*this).sp = (*this).sp + 1;
+    }
+    struct complex_num top()
+    {
+        if ((*this).sp > 0)
+            return (*this).mem[(*this).sp - 1];
+        else
+        {
+            struct complex_num null;
+            null.real = 0;
+            null.imaginary = 0;
+            return null;
+        }
+    }
+    struct complex_num pop()
+    {
+        if ((*this).sp > 0)
+        {
+            (*this).sp = (*this).sp - 1;
+            return (*this).mem[(*this).sp];
+        }
+        else
+        {
+            struct complex_num null;
+            null.real = 0;
+            null.imaginary = 0;
+            return null;
+        }
+    }
+};
+
+struct operator_stack
+{
+    int *mem;
+    int sp;
+    void init(int size)
+    {
+        (*this).mem = reinterpret_cast<int *>(allocate(size * 8));
+        (*this).sp = 0;
+    }
+    void drop()
+    {
+        deallocate(reinterpret_cast<int *>((*this).mem));
+    }
+    void push(int elem)
+    {
+        (*this).mem[(*this).sp] = elem;
+        (*this).sp = (*this).sp + 1;
+    }
+    int top()
+    {
+        if ((*this).sp > 0)
+            return (*this).mem[(*this).sp - 1];
+        else
+            return 0 - 1;
+    }
+    int pop()
+    {
+        if ((*this).sp > 0)
+        {
+            (*this).sp = (*this).sp - 1;
+            return (*this).mem[(*this).sp];
+        }
+        else
+            return 0 - 1;
+    }
+};
 int main()
 {
+    /* Initialize */
     function_table[0] = plus;
     function_table[1] = subtract;
     function_table[2] = multiply;
     function_table[3] = divide;
 
-    struct complex_num lhs;
-    struct complex_num rhs;
-    int op;
-    lhs = read_complex_num();
-    op = input_char();
-    rhs = read_complex_num();
+    int terminator = 36;
+    int l_paren = 40;
+    int r_paren = 41;
+    int *cur_pos;
+    int *input;
+    input = reinterpret_cast<int *>(allocate(512 * 4));
+    cur_pos = input;
 
-    if (op == 43)      /* plus */
-        op = 0;
-    else if (op == 45) /* minus */
-        op = 1;
-    else if (op == 42) /* multiply */
-        op = 2;
-    else if (op == 47) /* divide */
-        op = 3;
-    else               /* Unrecognized operator */
+    int cur_char;
+    cur_char = input_char();
+    while (cur_char != terminator)
     {
-        print_char(63);
-        print_char(10);
+        *cur_pos = cur_char;
+        cur_pos = cur_pos + 1;
+        cur_char = input_char();
     }
-    output_complex_num(function_table[op](&lhs, &rhs));
+    *cur_pos = terminator;
+
+    cur_pos = input;
+    struct operand_stack operands;
+    operands.init(512);
+    struct operator_stack operators;
+    operators.init(512);
+    while (*cur_pos != terminator)
+    {
+        if (char_to_int(*cur_pos) != 0 - 1)
+        {
+            operands.push(read_complex_num(&cur_pos));
+        }
+        else if (*cur_pos == 105)
+        {
+            struct complex_num unit;
+            unit.real = 0;
+            unit.imaginary = 1;
+            operands.push(unit);
+            cur_pos = cur_pos + 1;
+        }
+        else if (*cur_pos == l_paren)
+        {
+            operators.push(*cur_pos);
+            cur_pos = cur_pos + 1;
+        }
+        else if (*cur_pos == r_paren)
+        {
+            while (operators.sp * (operators.top() - l_paren) != 0)
+            {
+                struct complex_num rhs = operands.pop();
+                struct complex_num lhs = operands.pop();
+                operands.push(get_function(operators.pop())(&lhs, &rhs));
+            }
+            operators.pop();
+            cur_pos = cur_pos + 1;
+        }
+        else if (is_add_op(*cur_pos) == 1)
+        {
+            while (operators.sp * (operators.top() - l_paren) != 0)
+            {
+                struct complex_num rhs = operands.pop();
+                struct complex_num lhs = operands.pop();
+                operands.push(get_function(operators.pop())(&lhs, &rhs));
+            }
+            operators.push(*cur_pos);
+            cur_pos = cur_pos + 1;
+        }
+        else if (is_mul_op(*cur_pos) == 1)
+        {
+            while (operators.sp * is_mul_op(operators.top()) != 0)
+            {
+                struct complex_num rhs = operands.pop();
+                struct complex_num lhs = operands.pop();
+                operands.push(get_function(operators.pop())(&lhs, &rhs));
+            }
+            operators.push(*cur_pos);
+            cur_pos = cur_pos + 1;
+        }
+        else
+            return 0 - 1;
+    }
+    while (operators.sp != 0)
+    {
+        struct complex_num rhs = operands.pop();
+        struct complex_num lhs = operands.pop();
+        operands.push(get_function(operators.pop())(&lhs, &rhs));
+    }
+    if (operands.sp != 1)
+        return 0 - 1;
+    if (operators.sp != 0)
+        return 0 - 1;
+    output_complex_num(operands.top());
+
+    deallocate(reinterpret_cast<int *>(input));
+    operands.drop();
+    operators.drop();
     return 0;
 }
