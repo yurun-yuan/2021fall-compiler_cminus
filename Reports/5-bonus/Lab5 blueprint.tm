@@ -181,8 +181,8 @@
     eqOp orderExpr>>|<row|<cell|//>|<cell|>|<cell|orderExpr>>|<row|<cell|assign>|<cell|\<rightarrow\>>|<cell|EqExpr=assign>>|<row|<cell|>|<cell|>|<cell|EqExpr>>|<row|<cell|Expression>|<cell|\<rightarrow\>>|<cell|//assign,Expression>>|<row|<cell|>|<cell|>|<cell|assign>>>>
   </eqnarray*>
 
-  L-value: (Consider merging with R-value. Detect L-value/R-value during
-  semantic analysis)
+  <strike-through|L-value>: (Consider merging with R-value. Detect
+  L-value/R-value during semantic analysis)
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|L atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|<around*|(|L
@@ -458,7 +458,7 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-7><vspace|0.15fn>>
 
-      <with|par-left|<quote|4tab>|Declarations
+      <with|par-left|<quote|4tab>|Definitions and declarations
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-8><vspace|0.15fn>>
 
@@ -469,6 +469,30 @@
       <with|par-left|<quote|4tab>|Expressions
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-10><vspace|0.15fn>>
+
+      <with|par-left|<quote|2tab>|2.2.2<space|2spc>AST
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-11>>
+
+      <with|par-left|<quote|4tab>|Program structure
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-12><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Definitions and declarations
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-13><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Statement
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-14><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Expressions
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-15><vspace|0.15fn>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Problems>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-16><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>
