@@ -1,38 +1,54 @@
+/**
+ * @file complex_num_cal.cminus
+ * @author Yurun Yuan PB19111692
+ * @brief A complex number calculator. Used as demos for cminusf compiler. 
+ * @version 0.1
+ * @date 2021-12-25
+ * 
+ */
+
 struct complex_num
 {
-    float r;
-    float i;
+    float real;
+    float imaginary;
 
+    /**
+     * @return Returns |z|^2 for a complex number z.
+     */
     float modulus_sqare()
     {
-        return (*this).r * (*this).r + (*this).i * (*this).i;
+        return (*this).real * (*this).real + (*this).imaginary * (*this).imaginary;
     }
+
+    /**
+     * @return For a complex number a + b*i, returns a - b*i. 
+     */
     struct complex_num conjugate()
     {
         struct complex_num res;
-        res.r = (*this).r;
-        res.i = 0.0 - (*this).i;
+        res.real = (*this).real;
+        res.imaginary = 0.0 - (*this).imaginary;
         return res;
     }
     struct complex_num operator+(struct complex_num rhs)
     {
         struct complex_num res;
-        res.r = (*this).r + rhs.r;
-        res.i = (*this).i + rhs.i;
+        res.real = (*this).real + rhs.real;
+        res.imaginary = (*this).imaginary + rhs.imaginary;
         return res;
     }
     struct complex_num operator-(struct complex_num rhs)
     {
         struct complex_num res;
-        res.r = (*this).r - rhs.r;
-        res.i = (*this).i - rhs.i;
+        res.real = (*this).real - rhs.real;
+        res.imaginary = (*this).imaginary - rhs.imaginary;
         return res;
     }
     struct complex_num operator*(struct complex_num rhs)
     {
         struct complex_num res;
-        res.r = (*this).r * rhs.r - (*this).i * rhs.i;
-        res.i = (*this).r * rhs.i + (*this).i * rhs.r;
+        res.real = (*this).real * rhs.real - (*this).imaginary * rhs.imaginary;
+        res.imaginary = (*this).real * rhs.imaginary + (*this).imaginary * rhs.real;
         return res;
     }
     struct complex_num operator/(struct complex_num rhs)
@@ -40,47 +56,80 @@ struct complex_num
         struct complex_num res;
         float denominator = rhs.modulus_sqare();
         res = (*this) * rhs.conjugate();
-        res.r = res.r / denominator;
-        res.i = res.i / denominator;
+        res.real = res.real / denominator;
+        res.imaginary = res.imaginary / denominator;
         return res;
     }
 };
 
+struct complex_num plus(struct complex_num *lhs, struct complex_num *rhs)
+{
+    return *lhs + *rhs;
+}
+
+struct complex_num subtract(struct complex_num *lhs, struct complex_num *rhs)
+{
+    return *lhs - *rhs;
+}
+
+struct complex_num multiply(struct complex_num *lhs, struct complex_num *rhs)
+{
+    return *lhs * *rhs;
+}
+
+struct complex_num divide(struct complex_num *lhs, struct complex_num *rhs)
+{
+    return *lhs / *rhs;
+}
+
+/**
+ * @brief An array of functions. To store functions that
+ *        perform arithmetic operations for complex numbers. 
+ */
+struct complex_num (*function_table[4])(struct complex_num *, struct complex_num *);
+
 struct complex_num read_complex_num()
 {
     struct complex_num num;
-    num.r = input_float();
-    num.i = input_float();
+    num.real = input_float();
+    num.imaginary = input_float();
     return num;
 }
 
 void output_complex_num(struct complex_num num)
 {
-    print_float(num.r);
+    print_float(num.real);
     print_char(32);
-    println_float(num.i);
+    println_float(num.imaginary);
 }
 
 int main()
 {
+    function_table[0] = plus;
+    function_table[1] = subtract;
+    function_table[2] = multiply;
+    function_table[3] = divide;
+
     struct complex_num lhs;
     struct complex_num rhs;
     int op;
     lhs = read_complex_num();
     op = input_char();
     rhs = read_complex_num();
-    if (op == 43) /* plus */
-        output_complex_num(lhs + rhs);
+
+    if (op == 43)      /* plus */
+        op = 0;
     else if (op == 45) /* minus */
-        output_complex_num(lhs - rhs);
+        op = 1;
     else if (op == 42) /* multiply */
-        output_complex_num(lhs * rhs);
+        op = 2;
     else if (op == 47) /* divide */
-        output_complex_num(lhs / rhs);
-    else
+        op = 3;
+    else               /* Unrecognized operator */
     {
         print_char(63);
         print_char(10);
     }
+    output_complex_num(function_table[op](&lhs, &rhs));
     return 0;
 }
