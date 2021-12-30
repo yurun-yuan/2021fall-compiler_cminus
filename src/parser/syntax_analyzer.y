@@ -72,10 +72,12 @@ syntax_tree_node *node(const char *node_name, int children_num, ...);
 %token <node> STRING
 %token <node> OPERATOR
 %token <node> REINTERPRETCAST
+%token <node> TYPENAME
+%token <node> TEMPLATE
 //%token <node> EOL
 //%token <node> BLANK
 //%token <node> COMMENT
-%type <node> program definition-list definition definitions var-reference var-decl-atom var-decl-element var-decl-expression params param-list var-declaration type-specifier scalar-type-specifier struct-definition fun-definition compound-stmt statements statement-list statement var-definition expression-stmt selection-stmt iteration-stmt return-stmt atom reinterpret-cast element factor multiplicative-expression additive-expression relational-expression expression relop addop mulop integer float string args arg-list 
+%type <node> template-param-list template-arg-list class-template-declaration program definition-list definition definitions var-reference var-decl-atom var-decl-element var-decl-expression params param-list var-declaration type-specifier scalar-type-specifier struct-definition fun-definition compound-stmt statements statement-list statement var-definition expression-stmt selection-stmt iteration-stmt return-stmt atom reinterpret-cast element factor multiplicative-expression additive-expression relational-expression expression relop addop mulop integer float string args arg-list 
 
 /* compulsory starting symbol */
 %start program
@@ -95,6 +97,7 @@ definition-list 	: 	definition-list definition {$$ = node( "definition-list", 2,
 
 definition  : 	var-definition {$$ = node( "definition", 1, $1);}
 			| 	fun-definition {$$ = node( "definition", 1, $1);}
+			|   class-template-declaration {$$ = node( "definition", 1, $1);}
 			;
 
 definitions : definition-list {$$ = node( "definitions", 1, $1);}
@@ -142,7 +145,14 @@ type-specifier  :  scalar-type-specifier {$$ = node( "type-specifier", 1, $1);}
                 |  struct-definition {$$ = node( "type-specifier", 1, $1);}
 				/* |  IDENTIFIER {$$ = node( "type-specifier", 1, $1);} */
 				|  STRUCT IDENTIFIER {$$ = node( "type-specifier", 2, $1, $2);}
+				|  STRUCT IDENTIFIER LT template-arg-list GT {$$ = node( "type-specifier", 5, $1, $2, $3, $4, $5);}
+				|  TYPENAME IDENTIFIER {$$ = node( "type-specifier", 2, $1, $2);}
 				;
+
+template-arg-list : template-arg-list COMMA type-specifier {$$ = node( "template-arg-list", 3, $1, $2, $3);}
+                    | type-specifier {$$ = node( "template-arg-list", 1, $1);}
+                    ;
+
 
 scalar-type-specifier 	: 	INT {$$ = node( "scalar-type-specifier", 1, $1);}
 				        | 	FLOAT { $$ = node( "scalar-type-specifier", 1, $1); }
@@ -160,6 +170,13 @@ var-definition : var-declaration SEMICOLON {$$ = node( "var-definition", 2, $1, 
 
 fun-definition : var-declaration compound-stmt {$$ = node( "fun-definition", 2, $1, $2);}
 			   ;
+
+class-template-declaration : TEMPLATE LT template-param-list GT struct-definition SEMICOLON {$$ = node( "class-template-declaration", 6, $1, $2, $3, $4, $5, $6);}
+                           ;
+
+template-param-list : template-param-list COMMA TYPENAME type-specifier {$$ = node( "template-param-list", 4, $1, $2, $3, $4);}
+                    | TYPENAME type-specifier {$$ = node( "template-param-list", 2, $1, $2);}
+                    ;
 
 /**
  * Statements

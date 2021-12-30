@@ -247,6 +247,7 @@ private:
     virtual void visit(ASTDeclarationSubscript &) override final;
     virtual void visit(ASTFunDefinition &) override final;
     virtual void visit(ASTVarDefinition &) override final;
+    virtual void visit(ASTClassTemplateDeclaration &) override final;
     virtual void visit(ASTStructSpecification &) override final;
     virtual void visit(ASTNamedType &) override final;
     virtual void visit(ASTCompoundStmt &) override final;

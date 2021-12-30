@@ -104,6 +104,7 @@ struct ASTDefinition : ASTNode
 };
 struct ASTFunDefinition;
 struct ASTVarDefinition;
+struct ASTClassTemplateDeclaration;
 
 struct ASTTypeSpecifier : ASTNode
 {
@@ -285,6 +286,13 @@ struct ASTVarDefinition : ASTDefinition, ASTStatement
     std::optional<std::shared_ptr<ASTExpression>> init_value;
 };
 
+struct ASTClassTemplateDeclaration : ASTDefinition
+{
+    virtual void accept(ASTVisitor &) override final;
+    std::vector<std::shared_ptr<std::string>> typenames;
+    std::shared_ptr<ASTStructSpecification> template_body;
+};
+
 struct ASTStructSpecification : ASTTypeSpecifier
 {
     virtual void accept(ASTVisitor &) override final;
@@ -428,6 +436,7 @@ public:
     virtual void visit(ASTDeclarationSubscript &) = 0;
     virtual void visit(ASTFunDefinition &) = 0;
     virtual void visit(ASTVarDefinition &) = 0;
+    virtual void visit(ASTClassTemplateDeclaration &) = 0;
     virtual void visit(ASTStructSpecification &) = 0;
     virtual void visit(ASTNamedType &) = 0;
     virtual void visit(ASTCompoundStmt &) = 0;
