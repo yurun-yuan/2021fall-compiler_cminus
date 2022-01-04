@@ -19,13 +19,13 @@ AST::AST(syntax_tree *s)
         std::cerr << "empty input tree!" << std::endl;
         std::abort();
     }
-    auto node = transfrom(s->root);
+    auto node = transform(s->root);
     del_syntax_tree(s);
     root = std::shared_ptr<ASTProgram>(
         static_cast<ASTProgram *>(node));
 }
 
-ASTNode *AST::transfrom(syntax_tree_node *n)
+ASTNode *AST::transform(syntax_tree_node *n)
 {
 
     /**
@@ -37,12 +37,13 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         NEW(ASTProgram);
 
         // flatten definition list
-        flatten<ASTDefinition>(n->children[0], node->definitions);
+        flatten(n->children[0], node->definitions, [&](syntax_tree_node *node)
+                { return SHARED(ASTDefinition, transform(node)); });
         END;
     }
     CASE("definition")
     {
-        return transfrom(n->children[0]);
+        return transform(n->children[0]);
     }
     /**
      * @brief Definitions and Declarations
@@ -52,11 +53,11 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
     {
         NEW(ASTVarDefinition);
 
-        node->var_declaration = SHARED(ASTVarDeclaration, transfrom(n->children[0]));
+        node->var_declaration = SHARED(ASTVarDeclaration, transform(n->children[0]));
 
         CASE_CHILD0(1, "=")
         {
-            node->init_value = SHARED(ASTExpression, transfrom(CHILD(2)));
+            node->init_value = SHARED(ASTExpression, transform(CHILD(2)));
         }
 
         if (STR_EQ(n->parent->name, "statement"))
@@ -68,8 +69,21 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
     {
         NEW(ASTFunDefinition);
 
-        node->var_declaration = SHARED(ASTVarDeclaration, transfrom(CHILD(0)));
-        node->function_body = SHARED(ASTCompoundStmt, transfrom(CHILD(1)));
+        node->var_declaration = SHARED(ASTVarDeclaration, transform(CHILD(0)));
+        node->function_body = SHARED(ASTCompoundStmt, transform(CHILD(1)));
+        END;
+    }
+    CASE("class-template-declaration")
+    {
+        NEW(ASTClassTemplateDeclaration);
+
+        vector<string> param_list;
+        flatten(
+            CHILD(2), param_list, [&](syntax_tree_node *node)
+            { return node->name; },
+            0, 3, 1);
+        node->typenames = param_list;
+        node->template_body = SHARED(ASTStructSpecification, transform(CHILD(4)));
         END;
     }
     CASE("struct-definition")
@@ -88,7 +102,8 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
 
         if (CHILD(definitions_index)->children_num != 0)
         {
-            flatten<ASTDefinition>(CHILD(definitions_index)->children[0], node->definitions);
+            flatten(CHILD(definitions_index)->children[0], node->definitions, [&](syntax_tree_node *node)
+                    { return SHARED(ASTDefinition, transform(node)); });
         }
         END;
     }
@@ -102,33 +117,43 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
     {
         CASE_CHILD0(0, "struct-definition")
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
         CASE_CHILD(0, "scalar-type-specifier")
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
-        DEFAULT
+        CASE_CHILD(3, "template-arg-list")
         {
             NEW(ASTNamedType);
-            int id_index;
-            CASE_CHILD0(0, "struct")
-            {
-                id_index = 1;
-            }
-            DEFAULT
-            {
-                id_index = 0;
-            }
-            node->type_name = CHILD(id_index)->name;
+            node->type_name = CHILD(1)->name;
+            vector<shared_ptr<ASTTypeSpecifier>> args;
+            flatten(
+                CHILD(3), args, [&](syntax_tree_node *node)
+                { return SHARED(ASTTypeSpecifier, transform(node)); },
+                0, 2);
+            node->args = args;
             END;
         }
+        CASE_CHILD(0, "struct")
+        {
+            NEW(ASTNamedType);
+            node->type_name = CHILD(1)->name;
+            END;
+        }
+        CASE_CHILD(0, "typename")
+        {
+            NEW(ASTNamedType);
+            node->type_name = CHILD(1)->name;
+            END;
+        }
+        EXCEPT_DEFAULT;
     }
     CASE("var-declaration")
     {
         NEW(ASTVarDeclaration);
-        node->type_specifier = SHARED(ASTTypeSpecifier, transfrom(CHILD(0)));
-        node->decl_expression = SHARED(ASTDeclarationExpression, transfrom(CHILD(1)));
+        node->type_specifier = SHARED(ASTTypeSpecifier, transform(CHILD(0)));
+        node->decl_expression = SHARED(ASTDeclarationExpression, transform(CHILD(1)));
         END;
     }
     CASE("var-decl-expression")
@@ -136,12 +161,12 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         CASE_CHILD0(0, "*")
         {
             NEW(ASTDeclarationDereference);
-            node->expression = SHARED(ASTDeclarationExpression, transfrom(CHILD(1)));
+            node->expression = SHARED(ASTDeclarationExpression, transform(CHILD(1)));
             END;
         }
         DEFAULT
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
     }
     CASE("var-decl-element")
@@ -149,31 +174,33 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         CASE_CHILD0(2, "params")
         {
             NEW(ASTDeclarationCall);
-            node->callee = SHARED(ASTDeclarationExpression, transfrom(CHILD(0)));
+            node->callee = SHARED(ASTDeclarationExpression, transform(CHILD(0)));
             auto params = CHILD(2);
             if (params->children_num != 0 && !STR_EQ(params->children[0]->name, "void"))
             {
-                flatten<ASTVarDeclaration>(
-                    params->children[0], node->params,
-                    0, 2);
+                flatten(
+                    params->children[0], node->params, [&](syntax_tree_node *node)
+                    { return SHARED(ASTVarDeclaration, transform(node)); },
+                    0,
+                    2);
             }
             END;
         }
         CASE_CHILD(2, "integer")
         {
             NEW(ASTDeclarationSubscript);
-            node->array = SHARED(ASTDeclarationExpression, transfrom(CHILD(0)));
+            node->array = SHARED(ASTDeclarationExpression, transform(CHILD(0)));
             node->subscript = std::stoi(CHILD(2)->children[0]->name);
             END;
         }
         CASE_CHILD(0, "var-decl-atom")
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
         else
         {
             NEW(ASTDeclarationSubscript);
-            node->array = SHARED(ASTDeclarationExpression, transfrom(CHILD(0)));
+            node->array = SHARED(ASTDeclarationExpression, transform(CHILD(0)));
             END;
         }
     }
@@ -209,7 +236,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         }
         DEFAULT
         {
-            return transfrom(CHILD(1));
+            return transform(CHILD(1));
         }
     }
 
@@ -222,7 +249,8 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
             auto statements = CHILD(1);
             if (statements->children_num != 0)
             {
-                flatten<ASTStatement>(statements->children[0], node->statement_list);
+                flatten(statements->children[0], node->statement_list, [&](syntax_tree_node *node)
+                        { return SHARED(ASTStatement, transform(node)); });
             }
         }
         EXCEPT_DEFAULT;
@@ -230,33 +258,33 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
     }
     CASE("statement")
     {
-        return transfrom(n->children[0]);
+        return transform(n->children[0]);
     }
     CASE("expression-stmt")
     {
         NEW(ASTExpressionStmt);
         if (n->children_num == 2)
-            node->expression = SHARED(ASTExpression, transfrom(CHILD(0)));
+            node->expression = SHARED(ASTExpression, transform(CHILD(0)));
         END;
     }
     CASE("selection-stmt")
     {
         NEW(ASTSelectionStmt);
 
-        node->expression = SHARED(ASTExpression, transfrom(CHILD(2)));
-        node->if_statement = SHARED(ASTStatement, transfrom(CHILD(4)));
+        node->expression = SHARED(ASTExpression, transform(CHILD(2)));
+        node->if_statement = SHARED(ASTStatement, transform(CHILD(4)));
 
         if (n->children_num == 7)
         {
-            node->else_statement = SHARED(ASTStatement, transfrom(CHILD(6)));
+            node->else_statement = SHARED(ASTStatement, transform(CHILD(6)));
         }
         END;
     }
     CASE("iteration-stmt")
     {
         NEW(ASTIterationStmt);
-        node->expression = SHARED(ASTExpression, transfrom(CHILD(2)));
-        node->statement = SHARED(ASTStatement, transfrom(CHILD(4)));
+        node->expression = SHARED(ASTExpression, transform(CHILD(2)));
+        node->statement = SHARED(ASTStatement, transform(CHILD(4)));
         END;
     }
     CASE("return-stmt")
@@ -264,7 +292,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         NEW(ASTReturnStmt);
         CASE_CHILD0(1, "expression")
         {
-            node->expression = SHARED(ASTExpression, transfrom(CHILD(1)));
+            node->expression = SHARED(ASTExpression, transform(CHILD(1)));
         }
         END;
     }
@@ -280,7 +308,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         }
         DEFAULT
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
     }
     CASE("relational-expression")
@@ -295,7 +323,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         }
         DEFAULT
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
     }
     CASE("additive-expression")
@@ -310,7 +338,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         }
         DEFAULT
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
     }
     CASE("multiplicative-expression")
@@ -325,7 +353,7 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         }
         DEFAULT
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
     }
     CASE("factor")
@@ -334,24 +362,24 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         {
             NEW(ASTUnaryAddExpression);
             node->op = add_op(CHILD(0)->children[0]->name);
-            node->expression = SHARED(ASTExpression, transfrom(CHILD(1)));
+            node->expression = SHARED(ASTExpression, transform(CHILD(1)));
             END;
         }
         CASE_CHILD(0, "*")
         {
             NEW(ASTDereference);
-            node->expression = SHARED(ASTExpression, transfrom(CHILD(1)));
+            node->expression = SHARED(ASTExpression, transform(CHILD(1)));
             END;
         }
         CASE_CHILD(0, "&")
         {
             NEW(ASTAddressof);
-            node->expression = SHARED(ASTExpression, transfrom(CHILD(1)));
+            node->expression = SHARED(ASTExpression, transform(CHILD(1)));
             END;
         }
         CASE_CHILD(0, "element")
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
         EXCEPT_DEFAULT;
     }
@@ -360,12 +388,14 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         CASE_CHILD0(2, "args")
         {
             NEW(ASTCall);
-            node->callee = SHARED(ASTExpression, transfrom(CHILD(0)));
+            node->callee = SHARED(ASTExpression, transform(CHILD(0)));
             auto args = CHILD(2);
             if (args->children_num != 0)
             {
-                flatten<ASTExpression>(
+                flatten(
                     args->children[0], node->args,
+                    [&](syntax_tree_node *node)
+                    { return SHARED(ASTExpression, transform(node)); },
                     0, 2);
             }
             END;
@@ -373,20 +403,20 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         CASE_CHILD(2, "expression")
         {
             NEW(ASTSubscript);
-            node->array = SHARED(ASTExpression, transfrom(CHILD(0)));
-            node->subscript = SHARED(ASTExpression, transfrom(CHILD(2)));
+            node->array = SHARED(ASTExpression, transform(CHILD(0)));
+            node->subscript = SHARED(ASTExpression, transform(CHILD(2)));
             END;
         }
         CASE_CHILD(1, ".")
         {
             NEW(ASTMemberAccess);
-            node->object = SHARED(ASTExpression, transfrom(CHILD(0)));
+            node->object = SHARED(ASTExpression, transform(CHILD(0)));
             node->member_id = CHILD(2)->name;
             END;
         }
         DEFAULT
         {
-            return transfrom(CHILD(0));
+            return transform(CHILD(0));
         }
     }
     CASE("atom")
@@ -414,13 +444,13 @@ ASTNode *AST::transfrom(syntax_tree_node *n)
         {
             NEW(ASTReinterpretCast);
             auto reinterpret_cast_ = CHILD(0);
-            node->obj_type = SHARED(ASTVarDeclaration, transfrom(reinterpret_cast_->children[2]));
-            node->src_expression = SHARED(ASTExpression, transfrom(reinterpret_cast_->children[5]));
+            node->obj_type = SHARED(ASTVarDeclaration, transform(reinterpret_cast_->children[2]));
+            node->src_expression = SHARED(ASTExpression, transform(reinterpret_cast_->children[5]));
             END;
         }
         else if (n->children_num == 3)
         {
-            return transfrom(CHILD(1));
+            return transform(CHILD(1));
         }
         DEFAULT
         {
@@ -444,6 +474,7 @@ void ASTDeclarationCall::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTDeclarationSubscript::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTFunDefinition::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTVarDefinition::accept(ASTVisitor &visitor) { visitor.visit(*this); }
+void ASTClassTemplateDeclaration::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTStructSpecification::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTNamedType::accept(ASTVisitor &visitor) { visitor.visit(*this); }
 void ASTCompoundStmt::accept(ASTVisitor &visitor) { visitor.visit(*this); }

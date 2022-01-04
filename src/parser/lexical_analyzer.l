@@ -55,6 +55,8 @@ struct    {pos_start = pos_end; pos_end += 6; pass_node(yytext); return STRUCT;}
 auto      {pos_start = pos_end; pos_end += 4; pass_node(yytext); return AUTO;}
 operator  {pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return OPERATOR;}
 reinterpret_cast {pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return REINTERPRETCAST;}
+template {pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return TEMPLATE;}
+typename {pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return TYPENAME;}
 [a-zA-Z_]+	{pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return IDENTIFIER;}
 [0-9]+	{pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return INTEGER;}
 [0-9]+\.[0-9]*|[0-9]*\.[0-9]+ { pos_start = pos_end; pos_end += strlen(yytext); pass_node(yytext); return FLOATPOINT; }
