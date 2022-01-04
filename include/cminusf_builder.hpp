@@ -226,6 +226,10 @@ public:
                          { return builder->create_fmul(left, right); }},
                         {{GET_FLOAT, OP_DIV}, [&](Value *left, Value *right)
                          { return builder->create_fdiv(left, right); }}};
+        scalar_type_table = {
+            {"int", GET_INT32},
+            {"float", GET_FLOAT},
+            {"void", GET_VOID}};
     }
 
     std::unique_ptr<Module> getModule()
@@ -284,26 +288,31 @@ private:
     // Operator overload
     std::map<std::pair<char, Type *>, Function *> operator_overload_table;
 
+    // Scalar types, name to `Type`
+    unordered_map<string, Type *> scalar_type_table;
+
     // ======================================================================
     /**
      * @brief Pass values between `visit`s
      * 
      */
 
-    bool compound_stmt_is_func_body = true;
-
-    bool is_terminal_stmt = false;
-
-    // Use stack to evaluate expressions
-    std::stack<ValueInfo> cal_stack;
-
     struct Variable
     {
         Type *type;
         optional<string> id;
+        optional<vector<optional<string>>> func_param_name;
     };
+
     // pushed by ASTVarDeclaration, popped by consumer
     stack<Variable> var_decl_result;
+
+    bool is_terminal_stmt = false;
+
+    // Use stack to evaluate expressions
+    std::stack<ValueInfo> calculation_stack;
+
+    bool compound_stmt_is_func_body = true;
 
     struct TypeSpecifierResult
     {
@@ -311,7 +320,6 @@ private:
     };
     // pushed by type specifiers, popped by consumer
     stack<TypeSpecifierResult> type_specifier_res;
-    vector<optional<string>> latest_func_def_param_names;
 
     // Struct scope, for member functions
     vector<StructType *> struct_nest;
@@ -326,6 +334,15 @@ private:
     // Function scope
     stack<Function *> function_nest;
 
+    // Template table
+    unordered_map<string, ASTClassTemplateDeclaration *> template_table;
+
+    // For class template `visit`. Template parameter name mappings
+    stack<map<string, Type *>> template_parameter_mapping;
+
+    // Instaniated class templates
+    map<pair<string, map<string, Type *>>, StructType *> initiated_templates;
+
     // ======================================================================
 
     /**
@@ -334,6 +351,7 @@ private:
      */
     size_t anonymous_struct_name_cnt = 0;
     size_t label_name_cnt = 0;
+    size_t template_cnt = 0;
 
     // ======================================================================
     /**

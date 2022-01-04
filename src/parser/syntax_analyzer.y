@@ -143,7 +143,6 @@ var-declaration : type-specifier var-decl-expression {$$ = node( "var-declaratio
 
 type-specifier  :  scalar-type-specifier {$$ = node( "type-specifier", 1, $1);}
                 |  struct-definition {$$ = node( "type-specifier", 1, $1);}
-				/* |  IDENTIFIER {$$ = node( "type-specifier", 1, $1);} */
 				|  STRUCT IDENTIFIER {$$ = node( "type-specifier", 2, $1, $2);}
 				|  STRUCT IDENTIFIER LT template-arg-list GT {$$ = node( "type-specifier", 5, $1, $2, $3, $4, $5);}
 				|  TYPENAME IDENTIFIER {$$ = node( "type-specifier", 2, $1, $2);}
@@ -174,8 +173,8 @@ fun-definition : var-declaration compound-stmt {$$ = node( "fun-definition", 2, 
 class-template-declaration : TEMPLATE LT template-param-list GT struct-definition SEMICOLON {$$ = node( "class-template-declaration", 6, $1, $2, $3, $4, $5, $6);}
                            ;
 
-template-param-list : template-param-list COMMA TYPENAME type-specifier {$$ = node( "template-param-list", 4, $1, $2, $3, $4);}
-                    | TYPENAME type-specifier {$$ = node( "template-param-list", 2, $1, $2);}
+template-param-list : template-param-list COMMA TYPENAME IDENTIFIER {$$ = node( "template-param-list", 4, $1, $2, $3, $4);}
+                    | TYPENAME IDENTIFIER {$$ = node( "template-param-list", 2, $1, $2);}
                     ;
 
 /**

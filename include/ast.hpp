@@ -161,34 +161,39 @@ public:
     void run_visitor(ASTVisitor &visitor);
 
 private:
-    ASTNode *transfrom(syntax_tree_node *);
+    ASTNode *transform(syntax_tree_node *);
     std::shared_ptr<ASTProgram> root = nullptr;
-    template <typename ASTNodeType, typename Array>
-    void flatten(syntax_tree_node *root, Array &array, int l = 0, int r = 1)
+    template <typename Array, typename Func>
+    void flatten(
+        syntax_tree_node *root, Array &array,
+        Func func,
+        int l_child_idx = 0,
+        int r_child_idx = 1,
+        int leaf_child_idx = 0)
     {
-        std::stack<syntax_tree_node *> s;
-        while (root->children_num > 1)
-        {
-            s.push(root->children[r]);
-            root = root->children[l];
-        }
-
         if (root->children_num == 0)
             return;
 
-        s.push(root->children[0]);
+        std::stack<syntax_tree_node *> s;
+        while (root->children_num > r_child_idx)
+        {
+            s.push(root->children[r_child_idx]);
+            root = root->children[l_child_idx];
+        }
+
+        s.push(root->children[leaf_child_idx]);
 
         while (!s.empty())
         {
-            array.push_back(SHARED(ASTNodeType, transfrom(s.top())));
+            array.push_back(func(s.top()));
             s.pop();
         }
     }
     template <typename T>
     void bi_operation_helper(T &node, syntax_tree_node *n)
     {
-        node->l_expression = SHARED(ASTExpression, transfrom(CHILD(0)));
-        node->r_expression = SHARED(ASTExpression, transfrom(CHILD(2)));
+        node->l_expression = SHARED(ASTExpression, transform(CHILD(0)));
+        node->r_expression = SHARED(ASTExpression, transform(CHILD(2)));
     }
 
     auto add_op(const char *op_name)
@@ -289,7 +294,7 @@ struct ASTVarDefinition : ASTDefinition, ASTStatement
 struct ASTClassTemplateDeclaration : ASTDefinition
 {
     virtual void accept(ASTVisitor &) override final;
-    std::vector<std::shared_ptr<std::string>> typenames;
+    std::vector<std::string> typenames;
     std::shared_ptr<ASTStructSpecification> template_body;
 };
 
@@ -304,6 +309,7 @@ struct ASTNamedType : ASTTypeSpecifier
 {
     virtual void accept(ASTVisitor &) override final;
     std::string type_name;
+    optional<vector<shared_ptr<ASTTypeSpecifier>>> args;
 };
 
 // Statements

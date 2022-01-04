@@ -96,7 +96,7 @@ FunctionType *Module::get_function_type(Type *result,
 StructType *Module::get_struct_type(std::string struct_id)
 {
     if (struct_map_.find(struct_id) == struct_map_.end())
-        throw "No such struct";
+        return nullptr;
     else
         return struct_map_[struct_id];
 }

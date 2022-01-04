@@ -20,7 +20,7 @@ int input_char()
     while (1)
     {
         c = getchar();
-        if (c != '\n' && c != '\r' && c != ' ')
+        if (c != ' ')
             break;
     }
 
