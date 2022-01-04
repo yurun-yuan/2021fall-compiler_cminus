@@ -161,89 +161,36 @@ void output_complex_num(struct complex_num num)
     print_char(10);
 }
 
-struct operand_stack
+template <typename T>
+struct stack
 {
-    struct complex_num *mem;
+    typename T *mem;
     int sp;
     void init(int size)
     {
-        (*this).mem = reinterpret_cast<struct complex_num *>(allocate(size * 8));
+        (*this).mem = reinterpret_cast<typename T *>(allocate(size * 8));
         (*this).sp = 0;
     }
     void drop()
     {
         deallocate(reinterpret_cast<int *>((*this).mem));
     }
-    void push(struct complex_num elem)
+    void push(typename T elem)
     {
         (*this).mem[(*this).sp] = elem;
         (*this).sp = (*this).sp + 1;
     }
-    struct complex_num top()
+    typename T top()
     {
-        if ((*this).sp > 0)
-            return (*this).mem[(*this).sp - 1];
-        else
-        {
-            struct complex_num null;
-            null.real = 0;
-            null.imaginary = 0;
-            return null;
-        }
+        return (*this).mem[(*this).sp - 1];
     }
-    struct complex_num pop()
+    typename T pop()
     {
-        if ((*this).sp > 0)
-        {
-            (*this).sp = (*this).sp - 1;
-            return (*this).mem[(*this).sp];
-        }
-        else
-        {
-            struct complex_num null;
-            null.real = 0;
-            null.imaginary = 0;
-            return null;
-        }
+        (*this).sp = (*this).sp - 1;
+        return (*this).mem[(*this).sp];
     }
 };
 
-struct operator_stack
-{
-    int *mem;
-    int sp;
-    void init(int size)
-    {
-        (*this).mem = reinterpret_cast<int *>(allocate(size * 8));
-        (*this).sp = 0;
-    }
-    void drop()
-    {
-        deallocate(reinterpret_cast<int *>((*this).mem));
-    }
-    void push(int elem)
-    {
-        (*this).mem[(*this).sp] = elem;
-        (*this).sp = (*this).sp + 1;
-    }
-    int top()
-    {
-        if ((*this).sp > 0)
-            return (*this).mem[(*this).sp - 1];
-        else
-            return 0 - 1;
-    }
-    int pop()
-    {
-        if ((*this).sp > 0)
-        {
-            (*this).sp = (*this).sp - 1;
-            return (*this).mem[(*this).sp];
-        }
-        else
-            return 0 - 1;
-    }
-};
 int main()
 {
     /* Initialize */
@@ -252,7 +199,7 @@ int main()
     function_table[2] = multiply;
     function_table[3] = divide;
 
-    int terminator = 36;
+    int terminator = 10;
     int l_paren = 40;
     int r_paren = 41;
     int *cur_pos;
@@ -271,9 +218,9 @@ int main()
     *cur_pos = terminator;
 
     cur_pos = input;
-    struct operand_stack operands;
+    struct stack<struct complex_num> operands;
     operands.init(512);
-    struct operator_stack operators;
+    struct stack<int> operators;
     operators.init(512);
     while (*cur_pos != terminator)
     {
