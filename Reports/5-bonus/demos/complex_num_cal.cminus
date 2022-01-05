@@ -237,9 +237,9 @@ int main()
 
     cur_pos = input;
     struct stack<struct complex_num> operands;
-    operands.init(512);
+    operands.init(8);
     struct stack<int> operators;
-    operators.init(512);
+    operators.init(4);
     while (*cur_pos != terminator)
     {
         if (char_to_int(*cur_pos) != 0 - 1)
