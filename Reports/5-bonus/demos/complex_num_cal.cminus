@@ -131,14 +131,13 @@ int char_to_int(int c)
 struct complex_num read_complex_num(int **iter_ptr)
 {
     struct complex_num res;
-    float num;
-    num = 0;
+    float num = 0;
     while (char_to_int(**iter_ptr) != 0 - 1)
     {
         num = num * 10 + char_to_int(**iter_ptr);
         *iter_ptr = *iter_ptr + 1;
     }
-    if (**iter_ptr == 105)
+    if (**iter_ptr == 105) /* 'i' = 105 */
     {
         res.real = 0;
         res.imaginary = num;
@@ -162,32 +161,51 @@ void output_complex_num(struct complex_num num)
 }
 
 template <typename T>
+struct linked_list_node
+{
+    typename T elem;
+    struct linked_list_node<typename T> *next;
+};
+
+template <typename T>
 struct stack
 {
-    typename T *mem;
-    int sp;
+    struct linked_list_node<typename T> *head;
+    int element_size;
+    int elem_num;
     void init(int size)
     {
-        (*this).mem = reinterpret_cast<typename T *>(allocate(size * 8));
-        (*this).sp = 0;
-    }
-    void drop()
-    {
-        deallocate(reinterpret_cast<int *>((*this).mem));
+        (*this).elem_num = 0;
     }
     void push(typename T elem)
     {
-        (*this).mem[(*this).sp] = elem;
-        (*this).sp = (*this).sp + 1;
+        struct linked_list_node<typename T> *new_node = reinterpret_cast<struct linked_list_node<typename T> *>(allocate(((*this).element_size + 7) / 8 + 8));
+        (*new_node).elem = elem;
+        (*new_node).next = (*this).head;
+        (*this).head = new_node;
+        (*this).elem_num = (*this).elem_num + 1;
     }
     typename T top()
     {
-        return (*this).mem[(*this).sp - 1];
+        return (*(*this).head).elem;
     }
     typename T pop()
     {
-        (*this).sp = (*this).sp - 1;
-        return (*this).mem[(*this).sp];
+        (*this).elem_num = (*this).elem_num - 1;
+        typename T res = (*this).top();
+        struct linked_list_node<typename T> *remove_node = (*this).head;
+        (*this).head = (*(*this).head).next;
+        deallocate(reinterpret_cast<int *>(remove_node));
+        return res;
+    }
+    void drop()
+    {
+        int size = (*this).elem_num;
+        while (size > 0)
+        {
+            (*this).pop();
+            size = size - 1;
+        }
     }
 };
 
@@ -243,7 +261,7 @@ int main()
         }
         else if (*cur_pos == r_paren)
         {
-            while (operators.sp * (operators.top() - l_paren) != 0)
+            while (operators.elem_num * (operators.top() - l_paren) != 0)
             {
                 struct complex_num rhs = operands.pop();
                 struct complex_num lhs = operands.pop();
@@ -254,7 +272,7 @@ int main()
         }
         else if (is_add_op(*cur_pos) == 1)
         {
-            while (operators.sp * (operators.top() - l_paren) != 0)
+            while (operators.elem_num * (operators.top() - l_paren) != 0)
             {
                 struct complex_num rhs = operands.pop();
                 struct complex_num lhs = operands.pop();
@@ -265,7 +283,7 @@ int main()
         }
         else if (is_mul_op(*cur_pos) == 1)
         {
-            while (operators.sp * is_mul_op(operators.top()) != 0)
+            while (operators.elem_num * is_mul_op(operators.top()) != 0)
             {
                 struct complex_num rhs = operands.pop();
                 struct complex_num lhs = operands.pop();
@@ -277,15 +295,15 @@ int main()
         else
             return 0 - 1;
     }
-    while (operators.sp != 0)
+    while (operators.elem_num != 0)
     {
         struct complex_num rhs = operands.pop();
         struct complex_num lhs = operands.pop();
         operands.push(get_function(operators.pop())(&lhs, &rhs));
     }
-    if (operands.sp != 1)
+    if (operands.elem_num != 1)
         return 0 - 1;
-    if (operators.sp != 0)
+    if (operators.elem_num != 0)
         return 0 - 1;
     output_complex_num(operands.top());
 
