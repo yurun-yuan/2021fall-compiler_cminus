@@ -235,7 +235,6 @@ public:
         return res;
     }
 
-private:
     std::string struct_id;
     std::vector<StructMember> members;
 };

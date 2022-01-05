@@ -101,16 +101,22 @@ StructType *Module::get_struct_type(std::string struct_id)
         return struct_map_[struct_id];
 }
 
-void Module::add_struct(std::string struct_id, std::vector<StructType::StructMember> members)
+StructType *Module::register_struct(std::string struct_id)
 {
     if (struct_map_.find(struct_id) != struct_map_.end())
         throw "Duplicate definition of struct with the same name";
     else
     {
-        auto new_struct_type = new StructType(struct_id, members, this);
+        auto new_struct_type = new StructType(struct_id, {}, this);
         struct_map_[struct_id] = new_struct_type;
-        struct_map_.insert({struct_id, new_struct_type});
+        return new_struct_type;
     }
+}
+
+void Module::define_struct(StructType *struct_type, std::vector<StructType::StructMember> members)
+{
+    
+    struct_type->members = members;
 }
 
 PointerType *Module::get_int32_ptr_type()

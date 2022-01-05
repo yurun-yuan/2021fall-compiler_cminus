@@ -31,7 +31,8 @@ public:
     FunctionType *get_function_type(Type *result,
                                     std::vector<Type *> params);
     StructType *get_struct_type(std::string struct_id);
-    void add_struct(std::string struct_id, std::vector<StructType::StructMember> members);
+    StructType *register_struct(std::string struct_id);
+    void define_struct(StructType *struct_type, std::vector<StructType::StructMember> members);
 
     void add_function(Function *f);
     std::list<Function *> get_functions();

@@ -343,6 +343,8 @@ private:
     // Instaniated class templates
     map<pair<string, map<string, Type *>>, StructType *> initiated_templates;
 
+    StructType **to_be_registered_initiated_template = nullptr;
+
     // ======================================================================
 
     /**

@@ -62,7 +62,7 @@ void CminusfBuilder::visit(ASTDeclarationSubscript &node)
 void CminusfBuilder::visit(ASTFunDefinition &node)
 {
     node.var_declaration->accept(*this);
-    auto& function_prototype = var_decl_result.top(); // NOTE var_decl_result consumed
+    auto &function_prototype = var_decl_result.top(); // NOTE var_decl_result consumed
     assert(function_prototype.type->is_function_type());
     auto &params = dynamic_cast<FunctionType *>(function_prototype.type)->get_params();
     assert(all_of(params.begin(), params.end(), [&](Type *type)
@@ -177,6 +177,14 @@ void CminusfBuilder::visit(ASTStructSpecification &node)
     auto struct_id = node.struct_id.value_or("anonymous_struct." + to_string(anonymous_struct_name_cnt++));
     if (template_table.find(struct_id) != template_table.end())
         struct_id += "." + to_string(template_cnt++);
+
+    auto struct_type = MOD->register_struct(struct_id);
+
+    if(to_be_registered_initiated_template){
+        *to_be_registered_initiated_template = struct_type;
+        to_be_registered_initiated_template = nullptr;
+    }
+
     vector<ASTVarDefinition *> var_members_def;
     vector<ASTFunDefinition *> fun_members_def;
     for (auto def : node.definitions)
@@ -196,13 +204,13 @@ void CminusfBuilder::visit(ASTStructSpecification &node)
     {
         var_member_def->var_declaration->accept(*this);
         auto var_member_decl = pop(var_decl_result);
-        assert(var_member_decl.id.has_value());
-        var_members.push_back({var_member_decl.type, var_member_decl.id.value()});
+        assert(var_member_decl.id.has_value() || var_member_decl.type->is_struct_type());
+        if (var_member_decl.id.has_value())
+            var_members.push_back({var_member_decl.type, var_member_decl.id.value()});
         // TODO In-structure initialization
     }
 
-    MOD->add_struct(struct_id, std::move(var_members));
-    auto struct_type = StructType::get(struct_id, MOD);
+    MOD->define_struct(struct_type, std::move(var_members));
 
     struct_nest.push_back(struct_type);
     for (auto func_member_def : fun_members_def)
@@ -229,13 +237,13 @@ void CminusfBuilder::visit(ASTNamedType &node)
         auto template_name = class_template->template_body->struct_id.value();
         assert(class_template->typenames.size() == node.args.value().size());
         size_t arg_num = node.args.value().size();
-        push(template_parameter_mapping);
+        std::map<std::string, Type *> new_parameter_mapping;
         for (size_t i = 0; i < arg_num; i++)
         {
             node.args.value()[i]->accept(*this);
-            template_parameter_mapping.top()[class_template->typenames[i]] = pop(type_specifier_res).type;
+            new_parameter_mapping[class_template->typenames[i]] = pop(type_specifier_res).type;
         }
-        auto initiated_template = initiated_templates.find({template_name, template_parameter_mapping.top()});
+        auto initiated_template = initiated_templates.find({template_name, new_parameter_mapping});
         if (initiated_template != initiated_templates.end())
         {
             push(type_specifier_res);
@@ -243,10 +251,14 @@ void CminusfBuilder::visit(ASTNamedType &node)
         }
         else
         {
+            template_parameter_mapping.push(new_parameter_mapping);
+            auto &struct_type = initiated_templates[{template_name, template_parameter_mapping.top()}];
+            struct_type = nullptr;
+            to_be_registered_initiated_template = &struct_type;
             class_template->template_body->accept(*this);
-            initiated_templates[{template_name, template_parameter_mapping.top()}] = dynamic_cast<StructType *>(type_specifier_res.top().type);
+            struct_type = dynamic_cast<StructType *>(type_specifier_res.top().type);
+            template_parameter_mapping.pop();
         }
-        pop(template_parameter_mapping);
     }
     else if (module->get_struct_type(node.type_name))
     {
