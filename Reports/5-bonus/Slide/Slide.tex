@@ -1,0 +1,141 @@
+\documentclass{beamer}
+
+\usepackage{listings}
+
+\usetheme {Madrid}
+
+% Title page details
+\title{Compilers Principles Lab5 Report }
+\subtitle{\it{Language Features Extension}}
+\author{Yurun Yuan}
+\institute{CS, USTC}
+\date{\today}
+
+\begin{document}
+
+\lstset{language=C,keywordstyle={\bfseries \color{blue}}}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+    \tableofcontents
+\end{frame}
+
+\AtBeginSection[]
+{
+    \begin{frame}{Outline}
+        \tableofcontents[currentsection]
+    \end{frame}
+}
+
+\section{Type System Extension}
+
+
+\begin{frame}{Goals}{Type System Extension}
+    \begin{columns}
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Pointers
+
+                      \lstinline{int *ptr;}
+
+                \item Function pointers
+
+                      \lstinline{int (*func)(int);}
+
+                \item Arrays
+
+                      \lstinline{int array[42];}
+            \end{itemize}
+        \end{column}
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Structures
+
+                      \lstinline{struct S\{...\};}
+
+                      \lstinline{struct S s;}
+
+                      \lstinline{struct S\{...\} s;}
+
+                      \lstinline{struct\{...\} anonymous;}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Pointers and Arrays}
+
+\begin{frame}
+    \frametitle{Declaration Grammar}
+    \begin{block}{Declaration grammar}
+        $$
+            \begin{aligned}
+                \text{var-declaration} & \rightarrow & \text{type-specifier declarator ;}
+            \end{aligned}
+        $$
+    \end{block}
+
+    \begin{example}
+        \begin{center}
+            \begin{tabular}{l |c | c }
+                Variable declaration       & Type specifier        & Declarator \\
+                \hline \hline
+                \lstinline{int *ptr;}       & \lstinline{int} & \lstinline{*ptr}                   \\
+                \lstinline{int array[42];}     & \lstinline{int} & \lstinline{array[42]}
+            \end{tabular}
+        \end{center}
+    \end{example}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Type Specifiers}
+    % \framesubtitle{Pointers and Arrays}
+    \lstinline{cminuf} supports type \lstinline{int}, \lstinline{float} and \lstinline{void}.
+    \begin{block}{Type specifiers}
+        $$
+            \begin{aligned}
+                \text{type-specifier} & \rightarrow & \text{\textbf{int} \textbar
+                    \textbf{float}\textbar\textbf{void}}
+            \end{aligned}
+        $$
+    \end{block}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Declarators}
+    \framesubtitle{}
+    \begin{itemize}
+        \item Pointer declarators
+
+              \fbox{\lstinline{*ptr}} in \fbox{\lstinline{int *ptr;}}
+        \item Function declarators
+
+              \fbox{\lstinline{func(int)}} in \fbox{\lstinline{int func(int);}}
+
+        \item Array declarators
+
+              \fbox{\lstinline{array[42]}} in \fbox{\lstinline{int array[42];}}
+    \end{itemize}
+
+\end{frame}
+
+\subsection{Structures}
+
+\section{Operator Extension}
+
+\subsection{CFG of Expressions}
+
+\subsection{Operations on Structures}
+
+\section{Member Functions}
+
+\subsection{Non-Static Member Functions}
+
+\subsection{Operator Overloading}
+
+
+\end{document}

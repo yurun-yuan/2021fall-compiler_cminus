@@ -14,14 +14,14 @@ cminusfc complex_num_cal.cminus -o complex_num_cal
 $ ./complex_num_cal
 ```
 
-Enter an expression consisting of numbers, `i`, arithmetic operators, parentheses and white spaces ended with a character `$`. 
+Enter an expression consisting of numbers, `i`, arithmetic operators, parentheses and white spaces ended with a line feed. 
 Hit enter and check if the result is correct. 
 
 e.g. 
 
 ```bash
 $ ./complex_num_cal
-5 + (1 + 2i) * (3 + 4i)$
+5 + (1 + 2i) * (3 + 4i)↲
 0.000000 10.000000i
 ```
 

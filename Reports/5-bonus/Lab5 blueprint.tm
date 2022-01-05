@@ -72,7 +72,7 @@
   <paragraph|Program structure>
 
   <math|<tabular|<tformat|<table|<row|<cell|<text|program>>|<cell|\<rightarrow\>>|<cell|<text|definition-list>>>|<row|<cell|<text|definition-list>>|<cell|\<rightarrow\>>|<cell|<text|definition-list>
-  <text|definition>\|<text|definition>>>|<row|<cell|<text|definition>>|<cell|\<rightarrow\>>|<cell|<text|var-definition>\|<text|fun-definition>>>>>>>
+  <text|definition>\|<text|definition>>>|<row|<cell|<text|definition>>|<cell|\<rightarrow\>>|<cell|<text|var-definition>\|<text|fun-definition>\|<text|class-template-decl>>>>>>>
 
   <paragraph|Definitions and declarations>
 
@@ -100,10 +100,17 @@
     list>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|param
     list>|<cell|\<rightarrow\>>|<cell|param
     list,varDecl>>|<row|<cell|>|<cell|>|<cell|varDecl>>|<row|<cell|funcDefinition>|<cell|\<rightarrow\>>|<cell|varDec
-    compoundStmt>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|TypeSpecifier>|<cell|\<rightarrow\>>|<cell|ScalarType>>|<row|<cell|>|<cell|>|<cell|StructSpecification>>|<row|<cell|>|<cell|>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|struct
-    ID>>|<row|<cell|Scalar Type>|<cell|\<rightarrow\>>|<cell|int>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|StructSpecification>|<cell|\<rightarrow\>>|<cell|struct
+    compoundStmt>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|TypeSpecifier>|<cell|\<rightarrow\>>|<cell|ScalarType>>|<row|<cell|>|<cell|>|<cell|StructSpecification>>|<row|<cell|>|<cell|>|<cell|<deleted|ID>>>|<row|<cell|>|<cell|>|<cell|<with|font-series|bold|struct>
+    ID>>|<row|<cell|>|<cell|>|<cell|<with|font-series|bold|struct> ID
+    <around*|\<langle\>|TypeSpecifierList|\<rangle\>>>>|<row|<cell|>|<cell|>|<cell|<with|font-series|bold|typename>
+    ID>>|<row|<cell|<text|template-arg-list>>|<cell|\<rightarrow\>>|<cell|<text|template-arg-list>,TypeSpecifier>>|<row|<cell|Scalar
+    Type>|<cell|\<rightarrow\>>|<cell|int>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|void>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|StructSpecification>|<cell|\<rightarrow\>>|<cell|struct
     ID<around*|{|definitions|}>>>|<row|<cell|>|<cell|>|<cell|struct
-    <around*|{|definitions|}>>>|<row|<cell|definitions>|<cell|\<rightarrow\>>|<cell|definitionList>>|<row|<cell|>|<cell|>|<cell|empty>>>>
+    <around*|{|definitions|}>>>|<row|<cell|definitions>|<cell|\<rightarrow\>>|<cell|definitionList>>|<row|<cell|>|<cell|>|<cell|empty>>|<row|<cell|>|<cell|>|<cell|>>|<row|<cell|<text|class-template-decl>>|<cell|\<rightarrow\>>|<cell|<with|font-series|bold|template>
+    <around*|\<langle\>|<text|template-param-list>|\<rangle\>>
+    <text|struct-Specification ;>>>|<row|<cell|<text|template-param-list>>|<cell|\<rightarrow\>>|<cell|<text|template-param-list,
+    typename TypeSpecifier>>>|<row|<cell|>|<cell|\|>|<cell|<text|typename
+    TypeSpecifier>>>>>
   </eqnarray*>
 
   <paragraph|Statement>
@@ -170,7 +177,7 @@
     Assignment
   </enumerate>
 
-  R-value:
+  \;
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|atom>|<cell|\<rightarrow\>>|<cell|ID>>|<row|<cell|>|<cell|>|<cell|integer>>|<row|<cell|>|<cell|>|<cell|float>>|<row|<cell|>|<cell|>|<cell|string>>|<row|<cell|>|<cell|>|<cell|<around*|(|expression|)>>>|<row|<cell|element>|<cell|\<rightarrow\>>|<cell|element<around*|(|args|)>>>|<row|<cell|>|<cell|>|<cell|element<around*|[|expression|]>>>|<row|<cell|>|<cell|>|<cell|element.id>>|<row|<cell|>|<cell|>|<cell|atom>>|<row|<cell|factor>|<cell|\<rightarrow\>>|<cell|UnaryAddOp
