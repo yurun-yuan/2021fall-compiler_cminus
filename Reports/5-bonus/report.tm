@@ -1152,6 +1152,8 @@
   </cpp-code>
 
   <subsection|\<#7C7B\>\<#6A21\>\<#677F\>\<#5185\>\<#7684\>\<#7ED3\>\<#6784\>\<#4F53\>\<#5D4C\>\<#5957\>>
+
+  \<#6D89\>\<#53CA\>\<#5230\><verbatim|namespace>\<#7B49\>\<#95EE\>\<#9898\>\<#FF0C\>\<#6545\>\<#6682\>\<#4E0D\>\<#652F\>\<#6301\>\<#7C7B\>\<#6A21\>\<#677F\>\<#5185\>\<#7684\>\<#7ED3\>\<#6784\>\<#4F53\>\<#5B9A\>\<#4E49\>\<#3002\>
 </body>
 
 <\initial>
@@ -1164,32 +1166,32 @@
   <\collection>
     <associate|auto-1|<tuple|1|1>>
     <associate|auto-10|<tuple|1.2.1|4>>
-    <associate|auto-11|<tuple|1.2.1|5>>
+    <associate|auto-11|<tuple|1.2.1|4>>
     <associate|auto-12|<tuple|1.2.2|5>>
     <associate|auto-13|<tuple|1.2.2.1|5>>
     <associate|auto-14|<tuple|1.2.2.2|5>>
-    <associate|auto-15|<tuple|1.2.2.3|6>>
+    <associate|auto-15|<tuple|1.2.2.3|5>>
     <associate|auto-16|<tuple|1.3|6>>
     <associate|auto-17|<tuple|1.3.1|6>>
-    <associate|auto-18|<tuple|1.3.2|7>>
+    <associate|auto-18|<tuple|1.3.2|6>>
     <associate|auto-19|<tuple|1.3.3|7>>
     <associate|auto-2|<tuple|1.1|1>>
     <associate|auto-20|<tuple|1.3.3.1|7>>
-    <associate|auto-21|<tuple|1.3.3.2|9>>
-    <associate|auto-22|<tuple|1.3.3.3|9>>
-    <associate|auto-23|<tuple|2|9>>
+    <associate|auto-21|<tuple|1.3.3.2|8>>
+    <associate|auto-22|<tuple|1.3.3.3|8>>
+    <associate|auto-23|<tuple|2|8>>
     <associate|auto-24|<tuple|3|9>>
-    <associate|auto-25|<tuple|4|?>>
-    <associate|auto-26|<tuple|4.1|?>>
+    <associate|auto-25|<tuple|4|10>>
+    <associate|auto-26|<tuple|4.1|10>>
     <associate|auto-27|<tuple|4.2|?>>
     <associate|auto-3|<tuple|1.1.1|1>>
     <associate|auto-4|<tuple|c|2>>
     <associate|auto-5|<tuple|1.1.2|2>>
-    <associate|auto-6|<tuple|1.1.2.1|3>>
-    <associate|auto-7|<tuple|1.1.2.2|4>>
-    <associate|auto-8|<tuple|1.1.3|4>>
+    <associate|auto-6|<tuple|1.1.2.1|2>>
+    <associate|auto-7|<tuple|1.1.2.2|3>>
+    <associate|auto-8|<tuple|1.1.3|3>>
     <associate|auto-9|<tuple|1.2|4>>
-    <associate|ommitting-struct|<tuple|4.1|9>>
+    <associate|ommitting-struct|<tuple|4.1|10>>
   </collection>
 </references>
 
@@ -1202,7 +1204,7 @@
 
       <\tuple|normal>
         Expression CFG
-      </tuple|<pageref|auto-8>>
+      </tuple|<pageref|auto-11>>
     </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>\<#65B0\>\<#589E\>\<#8BED\>\<#8A00\>\<#7279\>\<#6027\>\<#53CA\>\<#5B9E\>\<#73B0\>\<#65B9\>\<#6CD5\>>
@@ -1221,78 +1223,86 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-5>>
 
+      <with|par-left|<quote|4tab>|Basic syntax
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-6><vspace|0.15fn>>
+
+      <with|par-left|<quote|4tab>|Self reference
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-7><vspace|0.15fn>>
+
+      <with|par-left|<quote|2tab>|1.1.3<space|2spc>Copy Construction
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-8>>
+
       <with|par-left|<quote|1tab>|1.2<space|2spc>\<#8FD0\>\<#7B97\>\<#62D3\>\<#5C55\>
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-6>>
-
-      <with|par-left|<quote|2tab>|1.2.1<space|2spc>\<#8868\>\<#8FBE\>\<#5F0F\>CFG
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-7>>
-
-      <with|par-left|<quote|2tab>|1.2.2<space|2spc>\<#7ED3\>\<#6784\>\<#4F53\>\<#76F8\>\<#5173\>\<#7684\>\<#8FD0\>\<#7B97\>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-9>>
 
+      <with|par-left|<quote|2tab>|1.2.1<space|2spc>\<#8868\>\<#8FBE\>\<#5F0F\>CFG
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-10>>
+
+      <with|par-left|<quote|2tab>|1.2.2<space|2spc>\<#7ED3\>\<#6784\>\<#4F53\>\<#76F8\>\<#5173\>\<#7684\>\<#8FD0\>\<#7B97\>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-12>>
+
       <with|par-left|<quote|4tab>|Assignment to struct-type variables
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-10><vspace|0.15fn>>
+      <no-break><pageref|auto-13><vspace|0.15fn>>
 
       <with|par-left|<quote|4tab>|Struct-type parameters
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-11><vspace|0.15fn>>
+      <no-break><pageref|auto-14><vspace|0.15fn>>
 
       <with|par-left|<quote|4tab>|Struct-type return value
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-12><vspace|0.15fn>>
+      <no-break><pageref|auto-15><vspace|0.15fn>>
 
       <with|par-left|<quote|1tab>|1.3<space|2spc>\<#90E8\>\<#5206\>\<#7C7B\>\<#7684\>\<#7279\>\<#6027\>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-13>>
+      <no-break><pageref|auto-16>>
 
       <with|par-left|<quote|2tab>|1.3.1<space|2spc>Member functions
       (Non-static) <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-14>>
+      <no-break><pageref|auto-17>>
 
       <with|par-left|<quote|2tab>|1.3.2<space|2spc>Arithmetic Operator
       Overloading <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-15>>
+      <no-break><pageref|auto-18>>
 
       <with|par-left|<quote|2tab>|1.3.3<space|2spc>Class Templates
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-16>>
+      <no-break><pageref|auto-19>>
 
       <with|par-left|<quote|4tab>|Overview
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-17><vspace|0.15fn>>
+      <no-break><pageref|auto-20><vspace|0.15fn>>
 
       <with|par-left|<quote|4tab>|Modification of CFG
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-18><vspace|0.15fn>>
+      <no-break><pageref|auto-21><vspace|0.15fn>>
 
       <with|par-left|<quote|4tab>|Modification of AST visitors
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19><vspace|0.15fn>>
+      <no-break><pageref|auto-22><vspace|0.15fn>>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Demos>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20><vspace|0.5fn>
+      <no-break><pageref|auto-23><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>\<#5B9E\>\<#73B0\>\<#65F6\>\<#7684\>\<#963B\>\<#788D\>>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-21><vspace|0.5fn>
+      <no-break><pageref|auto-24><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Unsolved
       Problems> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22><vspace|0.5fn>
+      <no-break><pageref|auto-25><vspace|0.5fn>
 
       <with|par-left|<quote|1tab>|4.1<space|2spc>Omitting Keyword
       <with|font-family|<quote|tt>|language|<quote|verbatim>|struct> when
       Refering to a Struct Type <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23>>
-
-      <with|par-left|<quote|1tab>|4.2<space|2spc>Recursive Type
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-24>>
+      <no-break><pageref|auto-26>>
     </associate>
   </collection>
 </auxiliary>
