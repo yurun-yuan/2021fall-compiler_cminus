@@ -1,12 +1,14 @@
 \documentclass{beamer}
 
 \usepackage{listings}
+\usepackage{qtree}
+\usepackage{multirow}
 
-\usetheme {Madrid}
+\usetheme {Copenhagen}
 
 % Title page details
 \title{Compilers Principles Lab5 Report }
-\subtitle{\it{Language Features Extension}}
+\subtitle{\it{Language Feature Extension}}
 \author{Yurun Yuan}
 \institute{CS, USTC}
 \date{\today}
@@ -30,10 +32,16 @@
     \end{frame}
 }
 
+\AtEndDocument{
+    \begin{frame}
+        \centering \Large
+        \emph{Thank You.}
+    \end{frame}
+}
+
 \section{Type System Extension}
 
-
-\begin{frame}{Goals}{Type System Extension}
+\begin{frame}{Goals}
     \begin{columns}
         \begin{column}[]{0.5\textwidth}
             \begin{itemize}
@@ -41,9 +49,9 @@
 
                       \lstinline{int *ptr;}
 
-                \item Function pointers
+                \item Function
 
-                      \lstinline{int (*func)(int);}
+                      \lstinline{int func(int);}
 
                 \item Arrays
 
@@ -73,27 +81,23 @@
     \begin{block}{Declaration grammar}
         $$
             \begin{aligned}
-                \text{var-declaration} & \rightarrow & \text{type-specifier declarator ;}
+                \text{declaration} & \rightarrow & \text{type-specifier declarator ;}
             \end{aligned}
         $$
     \end{block}
 
-    \begin{example}
-        \begin{center}
-            \begin{tabular}{l |c | c }
-                Variable declaration       & Type specifier        & Declarator \\
-                \hline \hline
-                \lstinline{int *ptr;}       & \lstinline{int} & \lstinline{*ptr}                   \\
-                \lstinline{int array[42];}     & \lstinline{int} & \lstinline{array[42]}
-            \end{tabular}
-        \end{center}
-    \end{example}
-\end{frame}
+    \only<1>{\begin{example}
+            \begin{center}
+                \begin{tabular}{l |l | l }
+                    Variable declaration       & Type specifier        & Declarator \\
+                    \hline \hline
+                    \lstinline{int *ptr;}       & \lstinline{int} & \lstinline{*ptr}                   \\
+                    \lstinline{int array[42];}     & \lstinline{int} & \lstinline{array[42]}
+                \end{tabular}
+            \end{center}
+        \end{example}}
 
-\begin{frame}
-    \frametitle{Type Specifiers}
-    % \framesubtitle{Pointers and Arrays}
-    \lstinline{cminuf} supports type \lstinline{int}, \lstinline{float} and \lstinline{void}.
+    \only<2>{For type specifiers, \lstinline{cminuf} supports type \lstinline{int}, \lstinline{float} and \lstinline{void}.
     \begin{block}{Type specifiers}
         $$
             \begin{aligned}
@@ -101,41 +105,790 @@
                     \textbf{float}\textbar\textbf{void}}
             \end{aligned}
         $$
-    \end{block}
+    \end{block}}
+
+    \only<3>{
+        For declarators, \lstinline{cminuf} supports pointer declarators, function declarators and array declarators.
+        \begin{itemize}
+            \item Pointer declarators
+
+                  \fbox{\lstinline{*ptr}} in \fbox{\lstinline{int *ptr;}}
+            \item Function declarators
+
+                  \fbox{\lstinline{func(int)}} in \fbox{\lstinline{int func(int);}}
+
+            \item Array declarators
+
+                  \fbox{\lstinline{array[42]}} in \fbox{\lstinline{int array[42];}}
+        \end{itemize}
+    }
+\end{frame}
+
+\begin{frame}
+    \frametitle{Crux: declarators can get mixed up}
+
+    \begin{example}
+        \lstinline{int (* a[2])(int);}
+        \\
+        \begin{center}
+            \begin{tabular}{l |l}
+                Nested declarators & Type expression                     \\
+                \hline \hline
+                \lstinline{(* a[2])(int)}    & \lstinline{int}                              \\
+                \lstinline{* a[2]}   & \lstinline{int}$\rightarrow$\lstinline{int}  \\
+                \lstinline{a[2]}   & pointer(\lstinline{int}$\rightarrow$\lstinline{int}) \\
+                \lstinline{a}    & array(2, pointer(\lstinline{int}$\rightarrow$\lstinline{int}))
+            \end{tabular}
+        \end{center}
+    \end{example}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Trial 1: a naive solution}
+    \begin{example}
+        \lstinline{int (* a[2])(int);}
+    \end{example}
+    \only<1>{$$
+            \begin{array}{lll}
+                \text{declarator} & \rightarrow & \text{* declarator}                \\
+                                  & |           & \text{declarator ( params )}       \\
+                                  & |           & \text{declarator [ \textbf{int} ]} \\
+                                  & |           & \text{( declarator )}              \\
+                                  & |           & \textbf{ID}
+            \end{array}
+        $$}
+
+    \only<2>{
+        \begin{block}{Problem: ambiguity}
+            \begin{columns}
+                \begin{column}[]{0.5\textwidth}
+                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
+                            {\lstinline{*}}
+                            [.{\lstinline{a[2]}}
+                                    {\lstinline{a}} {\lstinline{[2]}}
+                            ]
+                    ] {\lstinline{(int)}} ]
+
+
+
+                \end{column}
+                \begin{column}[]{0.5\textwidth}
+                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
+                            [.{\lstinline{* a}}
+                                    {\lstinline{*}}
+                                    {\lstinline{a}}
+                            ]
+                            {\lstinline{[2]}}
+                    ] {\lstinline{(int)}} ]
+                \end{column}
+            \end{columns}
+        \end{block}
+    }
 
 \end{frame}
 
 \begin{frame}
-    \frametitle{Declarators}
-    \framesubtitle{}
-    \begin{itemize}
-        \item Pointer declarators
-
-              \fbox{\lstinline{*ptr}} in \fbox{\lstinline{int *ptr;}}
-        \item Function declarators
-
-              \fbox{\lstinline{func(int)}} in \fbox{\lstinline{int func(int);}}
-
-        \item Array declarators
-
-              \fbox{\lstinline{array[42]}} in \fbox{\lstinline{int array[42];}}
-    \end{itemize}
+    \frametitle{Trial 2: eliminating ambiguity}
+    \begin{columns}
+        \only<1>{
+            \begin{column}[]{0.4\textwidth}
+                \begin{tabular}{l |l}
+                    \hline
+                    Preced             & Operation                  \\
+                    \hline \hline
+                    0                  & Parenthesis \lstinline{()} \\
+                    \hline
+                    \multirow{2}{*}{1} & Call \lstinline{()}        \\
+                    ~                  & subscript\lstinline{[]}    \\
+                    \hline
+                    2                  & Dereference \lstinline{*}  \\
+                    \hline
+                \end{tabular}
+            \end{column}}
+        \begin{column}[]{0.6\textwidth}
+            \begin{itemize}
+                \small
+                \item Parentheses and identifiers
+                      \begin{eqnarray*}
+                          \text{factor} & \rightarrow & \textbf{ID} \\
+                          & | & ( \text{ decl } )
+                      \end{eqnarray*}
+                \item Function calls and array subscripting
+                      \begin{eqnarray*}
+                          \text{decl-1} & \rightarrow & \text{decl-1}(\text{params}) \\
+                          & | & \text{decl-1}[\textbf{int}]\\
+                          & | &\text{factor}
+                      \end{eqnarray*}
+                \item Dereference
+                      \begin{eqnarray*}
+                          \text{decl} & \rightarrow & \textbf{*}\text{ decl} \\
+                          & | & \text{decl-1}
+                      \end{eqnarray*}
+            \end{itemize}
+        \end{column}
+        \only<2>{
+            \begin{column}[]{0.5\textwidth}
+                \begin{example}
+                    \lstinline{int (* a[2])(int);}
+                    \\ \hspace*{\fill} \\
+                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
+                            {\lstinline{*}}
+                            [.{\lstinline{a[2]}}
+                                    {\lstinline{a}} {\lstinline{[2]}}
+                            ]
+                    ] {\lstinline{(int)}} ]
+                \end{example}
+            \end{column}
+        }
+    \end{columns}
 
 \end{frame}
 
 \subsection{Structures}
 
+\begin{frame}
+    \frametitle{Goals}
+
+    \begin{itemize}
+        \item Structure definition
+
+              \lstinline{struct S\{...\};}
+
+        \item Variable definition
+
+              \lstinline{struct S s;}
+
+        \item Structure and variable definition
+
+              \lstinline{struct S\{...\} s;}
+
+        \item Anonymous structure
+
+              \lstinline{struct\{...\} anonymous;}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Extension of the declaration grammar}
+
+    \begin{block}{Declaration grammar}
+        $$
+            \begin{aligned}
+                \text{declaration} & \rightarrow & \text{type-specifier declarator ;}
+            \end{aligned}
+        $$
+    \end{block}
+
+    \only<1>{
+        \begin{center}
+            \begin{tabular}{l |l | l }
+                Declaration                              & Type specifier                & Declarator            \\
+                \hline \hline
+                \lstinline{struct S\{...\};}           & \lstinline{struct S\{...\}} & $\emptyset$           \\
+                \lstinline{struct S s;}     & \lstinline{struct S}         & \lstinline{s}                                         \\
+                \lstinline{struct S\{...\} s;}         & \lstinline{struct S\{...\}} & \lstinline{s}         \\
+                \lstinline{struct\{...\} anonymous;} & \lstinline{struct\{...\}} & \lstinline{anonymous}
+            \end{tabular}
+        \end{center}
+    }
+
+    \only<2>{
+        $$
+            \begin{array}{lll}
+                \text{type-specifier}    & \rightarrow & \text{struct-definition}                                      \\
+                                         & |           & \textbf{struct ID}                                            \\
+                \\
+                \text{struct-definition} & \rightarrow & \textbf{struct ID} \textbf{\{} \text{definitions} \textbf{\}} \\
+                                         & |           & \textbf{struct} \textbf{\{} \text{definitions} \textbf{\}}    \\
+                \\
+                \text{declarator}        & \rightarrow & \epsilon
+            \end{array}
+        $$
+    }
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Self reference}
+
+    \begin{example}
+        A naive implementation of the node of a forwarding linked list
+        \begin{lstlisting}[language=C]
+struct list_node{
+    int elem;
+    struct list_node* next;
+};
+        \end{lstlisting}
+    \end{example}
+
+    \only<1>{The identifier \fbox{\lstinline{struct list_node}} is visible within the definition of the structure, although \fbox{\lstinline{struct list_node}} is an incomplete type. }
+    \only<2>{To render the identifier \fbox{\lstinline{struct list_node}} available, construct an empty structure before parsing the body of the structure definition, and complete the type after the definition parsing is done. }
+\end{frame}
+
+\subsection{Initialization}
+
+\begin{frame}
+    \frametitle{Copy construction in declaration}
+
+    \begin{block}{Declaration grammar}
+        $$
+            \text{declaration}\rightarrow \text{type-specifier declarator} \textbf{ = } \text{expression}
+        $$
+    \end{block}
+
+    A declaration with initialization is transformed into a declaration with no initialization value and an Assignment.
+
+\end{frame}
+
 \section{Operator Extension}
 
-\subsection{CFG of Expressions}
+\begin{frame}
+    \frametitle{Supported operators}
+
+    \begin{columns}
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Arithmatic operators
+
+                      \lstinline{+,-,*,/}
+                \item Relational operators
+
+                      \lstinline{>,<,>=,<=,==,!=}
+                \item Assignment operator
+
+                      \lstinline{=}
+                \item Array subscript
+
+                      \lstinline{array\[index\]}
+            \end{itemize}
+        \end{column}
+
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Pointer dereference
+
+                      \lstinline{* ptr}
+                \item Address of
+
+                      \lstinline{\& lvalue}
+                \item Member access
+
+                      \lstinline{var.member}
+                \item Function call
+
+                      \lstinline{callable(params)}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+\end{frame}
+
+\subsection{Context Free Grammar of Expressions}
+
+\begin{frame}
+    \frametitle{Precedence and CFG}
+
+    \only<1>{
+        \begin{enumerate}
+            \setcounter{enumi}{-1}
+            \item Parenthesis $()$
+                  \begin{eqnarray*}
+                      \text{expr-0} & \rightarrow & \text{\textbf{ID}}\\
+                      & | & \text{\textbf{Integer-literal}} \hspace{8em}\\
+                      & | & \text{\textbf{Float-literal}}\\
+                      & | & \text{( expr )}
+                  \end{eqnarray*}
+
+            \item Function call, array subscript, member access
+                  \begin{eqnarray*}
+                      \text{expr-1} & \rightarrow & \text{expr-1 ( args )}\\
+                      & | & \text{expr-1 [ expr ]} \hspace{3em}\\
+                      & | & \text{expr-1 \textbf{.} \textbf{ID}}\\
+                      & | & \text{expr-0}
+                  \end{eqnarray*}
+        \end{enumerate}
+    }
+
+    \only<2>{
+        \begin{enumerate}
+            \setcounter{enumi}{1}
+            \item Dereference, address of
+                  \begin{eqnarray*}
+                      \text{expr-2} & \rightarrow & \text{\textbf{*} expr-2}\\
+                      & | & \text{\textbf{\&} expr-2} \hspace{8em}\\
+                      & | & \text{expr-1}
+                  \end{eqnarray*}
+
+            \item Multiplication, division
+                  \begin{eqnarray*}
+                      \text{expr-3} & \rightarrow & \text{expr-3 \textbf{MulOp} expr-2}\\
+                      & | & \text{expr-2}
+                  \end{eqnarray*}
+
+            \item Addition subtraction
+                  \begin{eqnarray*}
+                      \text{expr-4} & \rightarrow & \text{expr-4 \textbf{AddOp} expr-3}\\
+                      & | & \text{expr-3}
+                  \end{eqnarray*}
+        \end{enumerate}
+    }
+
+    \only<3>{
+        \begin{enumerate}
+            \setcounter{enumi}{4}
+            \item Relational operations
+                  \begin{eqnarray*}
+                      \text{expr-5} & \rightarrow & \text{expr-5 \textbf{RelOp} expr-4} \\
+                      & | & \text{expr-4}
+                  \end{eqnarray*}
+
+            \item Assignment
+                  \begin{eqnarray*}
+                      \text{expr} & \rightarrow & \text{expr-5 \textbf{=} expr} \\
+                      & | & \text{expr-5}
+                  \end{eqnarray*}
+                  \begin{block}{Note}
+                      The assignment operator is right associated, so the production is $\text{expr}  \rightarrow  \text{expr-5 \textbf{=} expr}$ instead of $\text{expr}  \rightarrow  \text{expr \textbf{=} expr-5}$.
+                  \end{block}
+        \end{enumerate}
+    }
+
+\end{frame}
 
 \subsection{Operations on Structures}
 
-\section{Member Functions}
+\begin{frame}
+    \frametitle{Problems with operations on structures}
+
+    \begin{itemize}
+        \item Assignment to structures\\
+              \lstinline{struct S s = t;}
+        \item Structures as parameters\\
+              \lstinline{void func(struct S)\{...\};}
+        \item Structures as return values\\
+              \lstinline{struct S func()\{...\};}
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Assignment to structures}
+
+    \begin{columns}
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Source code
+                      \begin{lstlisting}[language=C]
+struct S
+{
+    int member1;
+    float member2;
+};
+
+s = t;
+                    \end{lstlisting}
+            \end{itemize}
+
+        \end{column}
+
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Transformed code
+                      \begin{lstlisting}[language=C]
+struct S
+{
+    int member1;
+    float member2;
+};
+
+s.member1 = t.member1;
+s.member2 = t.member2;
+                \end{lstlisting}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Structures as parameters}
+
+    \begin{columns}
+        \begin{column}[]{0.4\textwidth}
+            \begin{itemize}
+                \item Source code
+                      \begin{lstlisting}[language=C]
+void func(struct S s)
+{...}
+
+int main()
+{
+    func(t);
+}
+                    \end{lstlisting}
+            \end{itemize}
+
+        \end{column}
+
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Transformed code
+                      \begin{lstlisting}[language=C]
+void func(struct S *ptr)
+{
+    struct S s;
+    s = *ptr;
+}
+
+int main()
+{
+    func(&t);
+}
+                \end{lstlisting}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Structures as return values}
+
+    \begin{columns}
+        \begin{column}[]{0.4\textwidth}
+            \begin{itemize}
+                \item Source code
+                      \begin{lstlisting}[language=C]
+struct S func()
+{
+    ...
+    return s;
+}
+
+int main()
+{
+    func();
+}
+                    \end{lstlisting}
+            \end{itemize}
+
+        \end{column}
+
+        \begin{column}[]{0.7\textwidth}
+            \begin{itemize}
+                \item Transformed code
+                      \begin{lstlisting}[language=C]
+void func(struct S* ret_ptr)
+{
+    ...
+    *ret_ptr = ret_value;
+}
+
+int main()
+{
+    struct S ret_value;
+    func(&ret_value);
+}
+                \end{lstlisting}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+\end{frame}
+
+\section{Classes and Templates}
 
 \subsection{Non-Static Member Functions}
 
-\subsection{Operator Overloading}
+\begin{frame}[fragile]
+    \frametitle{Functions declared within a structure}
 
+    \begin{example}
+        \small
+        \begin{columns}
+            \begin{column}[]{0.4\textwidth}
+                \begin{lstlisting}[language=C]
+struct S
+{
+    ...
+    void func(){}
+};
+                \end{lstlisting}
+
+            \end{column}
+
+            \begin{column}[]{0.4\textwidth}
+                \begin{lstlisting}[language=C]
+int main()
+{
+    struct S s;
+    s.func();
+}
+                \end{lstlisting}
+            \end{column}
+        \end{columns}
+    \end{example}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Transformation of member functions}
+
+    \begin{columns}
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \item Source code
+                      \begin{lstlisting}[language=C]
+struct S
+{
+    ...
+    void func(){}
+};
+
+int main()
+{
+    struct S s;
+    s.func();
+}
+                    \end{lstlisting}
+            \end{itemize}
+        \end{column}
+
+        \begin{column}[]{0.7\textwidth}
+            \begin{itemize}
+                \item Transformed code
+                      \begin{lstlisting}[language=C]
+struct S
+{
+    ...
+};
+void S.func(struct S* this)
+{}
+int main()
+{
+    struct S s;
+    S.func(&s);
+}
+                \end{lstlisting}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+\end{frame}
+
+\subsection{Operator Overriding}
+
+\begin{frame}[fragile]
+    \frametitle{Override an operator}
+
+    \begin{lstlisting}[language=C]
+struct S {
+    struct S operator+(struct S rhs)
+    {...}
+};
+
+int main()
+{
+    struct S s;
+    struct S t;
+    ...
+    s + t; // S::operator+ is called
+}
+    \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Transform the overriding function}
+    \begin{columns}
+        \begin{column}[]{0.4\textwidth}
+            \begin{itemize}
+                \item Source code
+                      \small
+                      \begin{lstlisting}[language=C]
+struct S {
+    S operator+(S)
+    {...}
+};
+int main()
+{
+    struct S s;
+    struct S t;
+    ...
+    s + t;
+}
+                    \end{lstlisting}
+            \end{itemize}
+
+        \end{column}
+
+        \begin{column}[]{0.8\textwidth}
+            \begin{itemize}
+                \item Transformed code
+                      \small
+                      \begin{lstlisting}[language=C]
+void S.operator+(
+    struct S* ret_ptr, 
+    struct S* this
+    struct S* rhs_ptr){
+    struct S rhs;
+    rhs = *rhs_ptr;
+    ...
+    *ret_ptr = ret_value;
+}
+int main(){
+    struct S s; struct S t;
+    ...
+    struct S ret_value;
+    S.operator+(&ret_value, &s, &t);
+}
+                \end{lstlisting}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Some details about my implementation}
+
+    \begin{block}{Function tables for operators}
+        The supported operators are arithmatic operators \lstinline{+,-,*,/}. \\
+        A function table for each of these operators is maintained, and is looked up every time the operation is performed.
+    \end{block}
+
+    \begin{block}{\textbf{Not} operator \textit{Overloading}}
+        Function overloading is not implemented. Once the operator is overriden, the overriding function will be invoked every time the operation is performed.
+    \end{block}
+
+\end{frame}
+\subsection{Class Templates}
+
+\begin{frame}[fragile]
+    \frametitle{Generic programing}
+
+    \begin{example}
+        \footnotesize
+        \begin{columns}
+            \begin{column}[]{0.4\textwidth}
+                \begin{lstlisting}[language=C++]
+template<typename T>
+struct stack{
+    typename T top();
+    void push(typename T);
+};
+                \end{lstlisting}
+
+            \end{column}
+
+            \begin{column}[]{0.4\textwidth}
+                \begin{lstlisting}[language=C]
+int main()
+{
+    stack<int> a;
+    stack<string> b;
+    a.push(42);
+    b.push("42");
+}
+                \end{lstlisting}
+            \end{column}
+        \end{columns}
+    \end{example}
+
+    \begin{block}{Note}
+        \small
+        Due to the limitation of CFG, in the specification of a class template, the keyword \textit{typename} is required before a template parameter.
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{CFG for class templates}
+
+    \begin{eqnarray*}
+        \text{template-definition} & \rightarrow & \textbf{template} \textbf{ < typename ID, ...>} \\
+        &  & \text{struct-definition}\\
+        \\
+        \text{type-specifier} & \rightarrow & \textbf{typename ID}\\
+        & | & \textbf{struct ID <}\text{declaration,...}\textbf{>}
+    \end{eqnarray*}
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Translation process of a class template}
+
+    \begin{columns}
+        \begin{column}[]{0.5\textwidth}
+            \small
+            \begin{lstlisting}[language=C++]
+template<typename T>
+struct S{
+    typename T t;
+};
+
+int main(){
+    struct S<int> s;
+}
+                \end{lstlisting}
+        \end{column}
+
+        \begin{column}[]{0.5\textwidth}
+            \Tree [.program [.{template S} [.{\lstinline{struct S}}
+                        [.\lstinline{T t}
+                            {T}
+                            {t}
+                        ]
+                ]]
+            [.{\lstinline{int main()\{...\}}}
+            [.{\lstinline{struct S<int> s;}}
+                {\lstinline{struct S<int>}}
+                {s}
+            ]
+            ]
+            ]
+
+        \end{column}
+    \end{columns}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Translation process of a class template}
+
+    \begin{columns}
+        \begin{column}[]{0.5\textwidth}
+            \Tree [.{\alert<1>{program}}
+            [.{\alert<2>{template S}}
+                [.{\alert<6>{\lstinline{struct S}}}
+                        [.{\alert<7>{\lstinline{T t}}}
+                                {\alert<8>{T}}
+                                {\alert<9>{t}}
+                        ]
+                ]]
+            [.{\alert<3>{\lstinline{int main()\{...\}}}}
+            [.{\alert<4>{\lstinline{struct S<int> s;}}}
+                {\alert<5,10>{\lstinline{struct S<int>}}}
+                {\alert<11>{s}}
+            ]
+            ]
+            ]
+        \end{column}
+
+        \begin{column}[]{0.5\textwidth}
+            \begin{itemize}
+                \small
+                \pause
+                \item \textbf<2>{Record the pointer of node \lstinline{template S} in AST, do not analyse subtrees. }\pause
+                      \pause
+                      \pause
+                \item \textbf<5>{Map template T to \lstinline{int}, go analyse class template}\pause
+                \item \textbf<6>{Construct structure \lstinline{S<int>}}\pause
+                      \pause
+                \item \textbf<8>{Use mapping to replace \lstinline{T} with \lstinline{int}}\pause
+                      \pause
+                \item \textbf<10>{\lstinline{S<int>} now is a complete type }\pause
+                \item \textbf<11>{Declare a variable of type \lstinline{S<int>}}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+\end{frame}
 
 \end{document}
