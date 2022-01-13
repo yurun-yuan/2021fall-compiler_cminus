@@ -149,9 +149,9 @@
         \lstinline{int (* a[2])(int);}
     \end{example}
     \only<1>{$$
-            \begin{array}{lll}
+            \begin{array}{rll}
                 \text{declarator} & \rightarrow & \text{* declarator}                \\
-                                  & |           & \text{declarator ( params )}       \\
+                                  & |           & \text{declarator ( type, ... )}    \\
                                   & |           & \text{declarator [ \textbf{int} ]} \\
                                   & |           & \text{( declarator )}              \\
                                   & |           & \textbf{ID}
@@ -162,7 +162,7 @@
         \begin{block}{Problem: ambiguity}
             \begin{columns}
                 \begin{column}[]{0.5\textwidth}
-                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
+                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\alert{\lstinline{(* a[2])}}}
                             {\lstinline{*}}
                             [.{\lstinline{a[2]}}
                                     {\lstinline{a}} {\lstinline{[2]}}
@@ -173,7 +173,7 @@
 
                 \end{column}
                 \begin{column}[]{0.5\textwidth}
-                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
+                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\alert{\lstinline{(* a[2])}}}
                             [.{\lstinline{* a}}
                                     {\lstinline{*}}
                                     {\lstinline{a}}
@@ -215,7 +215,7 @@
                       \end{eqnarray*}
                 \item Function calls and array subscripting
                       \begin{eqnarray*}
-                          \text{decl-1} & \rightarrow & \text{decl-1}(\text{params}) \\
+                          \text{decl-1} & \rightarrow & \text{decl-1}(\text{type, ...}) \\
                           & | & \text{decl-1}[\textbf{int}]\\
                           & | &\text{factor}
                       \end{eqnarray*}
@@ -294,7 +294,7 @@
 
     \only<2>{
         $$
-            \begin{array}{lll}
+            \begin{array}{rll}
                 \text{type-specifier}    & \rightarrow & \text{struct-definition}                                      \\
                                          & |           & \textbf{struct ID}                                            \\
                 \\
@@ -325,20 +325,20 @@ struct list_node{
     \only<2>{To render the identifier \fbox{\lstinline{struct list_node}} available, construct an empty structure before parsing the body of the structure definition, and complete the type after the definition parsing is done. }
 \end{frame}
 
-\subsection{Initialization}
+% \subsection{Initialization}
 
-\begin{frame}
-    \frametitle{Copy construction in declaration}
+% \begin{frame}
+%     \frametitle{Copy construction in declaration}
 
-    \begin{block}{Declaration grammar}
-        $$
-            \text{declaration}\rightarrow \text{type-specifier declarator} \textbf{ = } \text{expression}
-        $$
-    \end{block}
+%     \begin{block}{Declaration grammar}
+%         $$
+%             \text{declaration}\rightarrow \text{type-specifier declarator} \textbf{ = } \text{expression}
+%         $$
+%     \end{block}
 
-    A declaration with initialization is transformed into a declaration with no initialization value and an Assignment.
+%     A declaration with initialization is transformed into a declaration with no initialization value and an Assignment.
 
-\end{frame}
+% \end{frame}
 
 \section{Operator Extension}
 
@@ -495,8 +495,7 @@ s = t;
             \begin{itemize}
                 \item Transformed code
                       \begin{lstlisting}[language=C]
-struct S
-{
+struct S{
     int member1;
     float member2;
 };
@@ -519,7 +518,9 @@ s.member2 = t.member2;
                 \item Source code
                       \begin{lstlisting}[language=C]
 void func(struct S s)
-{...}
+{
+    ...
+}
 
 int main()
 {
@@ -536,8 +537,7 @@ int main()
                       \begin{lstlisting}[language=C]
 void func(struct S *ptr)
 {
-    struct S s;
-    s = *ptr;
+    struct S s = *ptr;
 }
 
 int main()
@@ -584,8 +584,7 @@ void func(struct S* ret_ptr)
     *ret_ptr = ret_value;
 }
 
-int main()
-{
+int main() {
     struct S ret_value;
     func(&ret_value);
 }
@@ -634,7 +633,7 @@ int main()
     \frametitle{Transformation of member functions}
 
     \begin{columns}
-        \begin{column}[]{0.5\textwidth}
+        \begin{column}[]{0.4\textwidth}
             \begin{itemize}
                 \item Source code
                       \begin{lstlisting}[language=C]
@@ -644,7 +643,7 @@ struct S
     void func(){}
 };
 
-int main()
+int main() 
 {
     struct S s;
     s.func();
@@ -661,12 +660,12 @@ struct S
 {
     ...
 };
-void S.func(struct S* this)
-{}
+void S::func(struct S* this){}
+
 int main()
 {
     struct S s;
-    S.func(&s);
+    S::func(&s);
 }
                 \end{lstlisting}
             \end{itemize}
@@ -675,10 +674,10 @@ int main()
 
 \end{frame}
 
-\subsection{Operator Overriding}
+\subsection{Operator Overloading}
 
 \begin{frame}[fragile]
-    \frametitle{Override an operator}
+    \frametitle{Overload an operator}
 
     \begin{lstlisting}[language=C]
 struct S {
@@ -697,19 +696,22 @@ int main()
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Transform the overriding function}
+    \frametitle{Transform the overloading function}
     \begin{columns}
         \begin{column}[]{0.4\textwidth}
             \begin{itemize}
                 \item Source code
                       \small
                       \begin{lstlisting}[language=C]
-struct S {
+struct S
+{
     S operator+(S)
     {...}
 };
-int main()
-{
+
+
+
+int main() {
     struct S s;
     struct S t;
     ...
@@ -725,12 +727,11 @@ int main()
                 \item Transformed code
                       \small
                       \begin{lstlisting}[language=C]
-void S.operator+(
+void S::operator+(
     struct S* ret_ptr, 
     struct S* this
     struct S* rhs_ptr){
-    struct S rhs;
-    rhs = *rhs_ptr;
+    struct S rhs = *rhs_ptr;
     ...
     *ret_ptr = ret_value;
 }
@@ -738,7 +739,7 @@ int main(){
     struct S s; struct S t;
     ...
     struct S ret_value;
-    S.operator+(&ret_value, &s, &t);
+    S::operator+(&ret_value, &s, &t);
 }
                 \end{lstlisting}
             \end{itemize}
@@ -754,9 +755,9 @@ int main(){
         A function table for each of these operators is maintained, and is looked up every time the operation is performed.
     \end{block}
 
-    \begin{block}{\textbf{Not} operator \textit{Overloading}}
-        Function overloading is not implemented. Once the operator is overriden, the overriding function will be invoked every time the operation is performed.
-    \end{block}
+    % \begin{block}{\textbf{Not} operator \textit{Overloading}}
+    %     Function overloading is not implemented. Once the operator is overriden, the overriding function will be invoked every time the operation is performed.
+    % \end{block}
 
 \end{frame}
 \subsection{Class Templates}
