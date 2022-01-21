@@ -5,6 +5,12 @@ This program takes 2 complex number and an operator as input, then prints the re
 ## Compile
 
 ```bash
+make
+```
+
+or, alternatively, 
+
+```bash
 cminusfc complex_num_cal.cminus -o complex_num_cal
 ```
 
