@@ -1,5 +1,84 @@
 \documentclass{beamer}
 
+% for annotated equations %%%%%%%%%%%%%%%%
+% \usepackage[dvipsnames]{xcolor}
+
+\usepackage{tikz}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{arrows,shapes}
+\usetikzlibrary{tikzmark}
+\usetikzlibrary{calc}
+
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{mathtools, nccmath}
+\usepackage{wrapfig}
+\usepackage{comment}
+
+% To generate dummy text
+\usepackage{blindtext}
+
+
+%color
+%\usepackage[dvipsnames]{xcolor}
+% \usepackage{xcolor}
+
+
+%\usepackage[pdftex]{graphicx}
+\usepackage{graphicx}
+% declare the path(s) for graphic files
+%\graphicspath{{../Figures/}}
+
+% extensions so you won't have to specify these with
+% every instance of \includegraphics
+% \DeclareGraphicsExtensions{.pdf,.jpeg,.png}
+
+% for custom commands
+\usepackage{xspace}
+
+% table alignment
+\usepackage{array}
+\usepackage{ragged2e}
+\newcolumntype{P}[1]{>{\RaggedRight\hspace{0pt}}p{#1}}
+\newcolumntype{X}[1]{>{\RaggedRight\hspace*{0pt}}p{#1}}
+
+% color box
+\usepackage{tcolorbox}
+
+
+% for tikz
+\usepackage{tikz}
+%\usetikzlibrary{trees}
+\usetikzlibrary{arrows,shapes,positioning,shadows,trees,mindmap}
+% \usepackage{forest}
+\usepackage[edges]{forest}
+\usetikzlibrary{arrows.meta}
+\colorlet{linecol}{black!75}
+\usepackage{xkcdcolors} % xkcd colors
+
+
+% for colorful equation
+\usepackage{tikz}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{arrows,shapes}
+\usetikzlibrary{tikzmark}
+\usetikzlibrary{calc}
+% Commands for Highlighting text -- non tikz method
+\newcommand{\highlight}[2]{\colorbox{#1!17}{$\displaystyle #2$}}
+%\newcommand{\highlight}[2]{\colorbox{#1!17}{$#2$}}
+\newcommand{\highlightdark}[2]{\colorbox{#1!47}{$\displaystyle #2$}}
+
+% my custom colors for shading
+% \colorlet{mhpurple}{Plum!80}
+
+
+% Commands for Highlighting text -- non tikz method
+\renewcommand{\highlight}[2]{\colorbox{#1!17}{#2}}
+\renewcommand{\highlightdark}[2]{\colorbox{#1!47}{#2}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \usepackage{listings}
 \usepackage{qtree}
 \usepackage{multirow}
@@ -41,7 +120,7 @@
 
 \section{Type System Extension}
 
-\begin{frame}{Goals}
+\begin{frame}{Declarations of Variables}
     \begin{columns}
         \begin{column}[]{0.5\textwidth}
             \begin{itemize}
@@ -86,40 +165,54 @@
         $$
     \end{block}
 
-    \only<1>{\begin{example}
-            \begin{center}
-                \begin{tabular}{l |l | l }
-                    Variable declaration       & Type specifier        & Declarator \\
-                    \hline \hline
-                    \lstinline{int *ptr;}       & \lstinline{int} & \lstinline{*ptr}                   \\
-                    \lstinline{int array[42];}     & \lstinline{int} & \lstinline{array[42]}
-                \end{tabular}
-            \end{center}
-        \end{example}}
+    \only<1>{
+        % \begin{block}{Type specifiers}
+        %     $$
+        %         \begin{aligned}
+        %             \text{type-specifier} & \rightarrow & \text{\textbf{int} \textbar
+        %                 \textbf{float}\textbar\textbf{void}}
+        %         \end{aligned}
+        %     $$
+        % \end{block}
 
-    \only<2>{For type specifiers, \lstinline{cminuf} supports type \lstinline{int}, \lstinline{float} and \lstinline{void}.
-    \begin{block}{Type specifiers}
-        $$
-            \begin{aligned}
-                \text{type-specifier} & \rightarrow & \text{\textbf{int} \textbar
-                    \textbf{float}\textbar\textbf{void}}
-            \end{aligned}
-        $$
-    \end{block}}
+        \begin{example}
+            % \begin{center}
+            %     \begin{tabular}{l |l | l }
+            %         Variable declaration       & Type specifier        & Declarator \\
+            %         \hline \hline
+            %         \lstinline{int *ptr;}       & \lstinline{int} & \lstinline{*ptr}                   \\
+            %         \lstinline{int array[42];}     & \lstinline{int} & \lstinline{array[42]}
+            %     \end{tabular}
+            % \end{center}
+            \
+            \\
 
-    \only<3>{
-        For declarators, \lstinline{cminuf} supports pointer declarators, function declarators and array declarators.
+
+            \begin{equation*}
+                \tikzmarknode{ts}{\highlight{red}{\lstinline{int}}}\ \tikzmarknode{d}{\highlight{blue}{\lstinline{* a[2]}}} \lstinline{;}
+            \end{equation*}
+            \begin{tikzpicture}[overlay,remember picture,>=stealth,nodes={align=left,inner ysep=1pt},<-]
+                % For "X"
+                \path (ts.north) ++ (0,0.5em) node[anchor=south east,color=red!67] (scalep){\textbf{type-specifier}};
+                \draw [color=red!87](ts.north) |- ([xshift=-0.3ex,color=red]scalep.south west);
+                % For "S"
+                \path (d.south) ++ (0,-0.5em) node[anchor=north west,color=blue!67] (mean){\textbf{declarator}};
+                \draw [color=blue!57](d.south) |- ([xshift=-0.3ex,color=blue]mean.south east);
+            \end{tikzpicture}
+        \end{example}
+    }
+
+    \only<2>{
         \begin{itemize}
             \item Pointer declarators
 
-                  \fbox{\lstinline{*ptr}} in \fbox{\lstinline{int *ptr;}}
+                  \lstinline{int}\ \highlight{blue}{\lstinline{* ptr}} \lstinline{;}
             \item Function declarators
 
-                  \fbox{\lstinline{func(int)}} in \fbox{\lstinline{int func(int);}}
-
+                  \lstinline{int}\ \highlight{blue}{\lstinline{func(float)}} \lstinline{;}
             \item Array declarators
 
-                  \fbox{\lstinline{array[42]}} in \fbox{\lstinline{int array[42];}}
+                  \lstinline{int}\ \highlight{blue}{\lstinline{array[42]}} \lstinline{;}
         \end{itemize}
     }
 \end{frame}
@@ -149,12 +242,12 @@
         \lstinline{int (* a[2])(int);}
     \end{example}
     \only<1>{$$
-            \begin{array}{rll}
-                \text{declarator} & \rightarrow & \text{* declarator}                \\
-                                  & |           & \text{declarator ( type, ... )}    \\
-                                  & |           & \text{declarator [ \textbf{int} ]} \\
-                                  & |           & \text{( declarator )}              \\
-                                  & |           & \textbf{ID}
+            \begin{array}{rlll}
+                \text{declarator} & \rightarrow & \text{* declarator}                & \textbf{\textit{Pointer declarator}}  \\
+                                  & |           & \text{declarator ( type, ... )}    & \textbf{\textit{Funtcion declarator}} \\
+                                  & |           & \text{declarator [ \textbf{int} ]} & \textbf{\textit{Array declarat}}      \\
+                                  & |           & \text{( declarator )}              & \                                     \\
+                                  & |           & \textbf{ID}                        & \
             \end{array}
         $$}
 
@@ -205,6 +298,36 @@
                     \hline
                 \end{tabular}
             \end{column}}
+
+        \only<2>{
+            \begin{column}[]{0.5\textwidth}
+                \begin{example}
+                    \lstinline{int} \highlight{blue}{\lstinline{* array[2]}}\lstinline{;}
+                    \\ \hspace*{\fill} \\
+
+                    \Tree[.{decl}
+                        *
+                            [.{decl}
+                                    [.{decl-1}
+                                            [.{decl-1}
+                                                    [.{factor}
+                                                            {\textbf{ID}}
+                                                    ]
+                                            ]
+                                            {\lstinline{\[int\]}}
+                                    ]
+                            ]
+                    ]
+
+                    % \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
+                    %         {\lstinline{*}}
+                    %         [.{\lstinline{a[2]}}
+                    %                 {\lstinline{a}} {\lstinline{[2]}}
+                    %         ]
+                    % ] {\lstinline{(int)}} ]
+                \end{example}
+            \end{column}
+        }
         \begin{column}[]{0.6\textwidth}
             \begin{itemize}
                 \small
@@ -226,20 +349,6 @@
                       \end{eqnarray*}
             \end{itemize}
         \end{column}
-        \only<2>{
-            \begin{column}[]{0.5\textwidth}
-                \begin{example}
-                    \lstinline{int (* a[2])(int);}
-                    \\ \hspace*{\fill} \\
-                    \Tree [.{\lstinline{(* a[2])(int)}} [.{\lstinline{(* a[2])}}
-                            {\lstinline{*}}
-                            [.{\lstinline{a[2]}}
-                                    {\lstinline{a}} {\lstinline{[2]}}
-                            ]
-                    ] {\lstinline{(int)}} ]
-                \end{example}
-            \end{column}
-        }
     \end{columns}
 
 \end{frame}
@@ -247,7 +356,7 @@
 \subsection{Structures}
 
 \begin{frame}
-    \frametitle{Goals}
+    \frametitle{Declarations of Structures}
 
     \begin{itemize}
         \item Structure definition
@@ -282,12 +391,12 @@
     \only<1>{
         \begin{center}
             \begin{tabular}{l |l | l }
-                Declaration                              & Type specifier                & Declarator            \\
+                Declaration                                                                               & Type specifier                & Declarator            \\
                 \hline \hline
-                \lstinline{struct S\{...\};}           & \lstinline{struct S\{...\}} & $\emptyset$           \\
-                \lstinline{struct S s;}     & \lstinline{struct S}         & \lstinline{s}                                         \\
-                \lstinline{struct S\{...\} s;}         & \lstinline{struct S\{...\}} & \lstinline{s}         \\
-                \lstinline{struct\{...\} anonymous;} & \lstinline{struct\{...\}} & \lstinline{anonymous}
+                \highlight{red}{\lstinline{struct S\{...\}}}\lstinline{;}           & \lstinline{struct S\{...\}}     & $\emptyset$                                           \\
+                \highlight{red}{\lstinline{struct S}} \highlight{blue}{\lstinline{s}}\lstinline{;}                    & \lstinline{struct S}         & \lstinline{s}                             \\
+                \highlight{red}{\lstinline{struct S\{...\}}} \highlight{blue}{\lstinline{s}}\lstinline{;} & \lstinline{struct S\{...\}} & \lstinline{s}         \\
+                \highlight{red}{\lstinline{struct\{...\}}} \highlight{blue}{\lstinline{anonymous}}\lstinline{;} & \lstinline{struct\{...\}} & \lstinline{anonymous}
             \end{tabular}
         \end{center}
     }
@@ -295,13 +404,15 @@
     \only<2>{
         $$
             \begin{array}{rll}
-                \text{type-specifier}    & \rightarrow & \text{struct-definition}                                      \\
+                \text{type-specifier}    & \rightarrow & \cdots                                                        \\
+                                         & |           & \text{struct-definition}                                      \\
                                          & |           & \textbf{struct ID}                                            \\
                 \\
                 \text{struct-definition} & \rightarrow & \textbf{struct ID} \textbf{\{} \text{definitions} \textbf{\}} \\
                                          & |           & \textbf{struct} \textbf{\{} \text{definitions} \textbf{\}}    \\
                 \\
-                \text{declarator}        & \rightarrow & \epsilon
+                \text{declarator}        & \rightarrow & \cdots                                                        \\
+                                         & |           & \epsilon
             \end{array}
         $$
     }
@@ -747,19 +858,19 @@ int main(){
     \end{columns}
 \end{frame}
 
-\begin{frame}
-    \frametitle{Some details about my implementation}
+% \begin{frame}
+%     \frametitle{Some details about my implementation}
 
-    \begin{block}{Function tables for operators}
-        The supported operators are arithmatic operators \lstinline{+,-,*,/}. \\
-        A function table for each of these operators is maintained, and is looked up every time the operation is performed.
-    \end{block}
+%     \begin{block}{Function tables for operators}
+%         The supported operators are arithmatic operators \lstinline{+,-,*,/}. \\
+%         A function table for each of these operators is maintained, and is looked up every time the operation is performed.
+%     \end{block}
 
-    % \begin{block}{\textbf{Not} operator \textit{Overloading}}
-    %     Function overloading is not implemented. Once the operator is overriden, the overriding function will be invoked every time the operation is performed.
-    % \end{block}
+%     \begin{block}{\textbf{Not} operator \textit{Overloading}}
+%         Function overloading is not implemented. Once the operator is overriden, the overriding function will be invoked every time the operation is performed.
+%     \end{block}
 
-\end{frame}
+% \end{frame}
 \subsection{Class Templates}
 
 \begin{frame}[fragile]
@@ -772,8 +883,8 @@ int main(){
                 \begin{lstlisting}[language=C++]
 template<typename T>
 struct stack{
-    typename T top();
-    void push(typename T);
+    T top();
+    void push(T);
 };
                 \end{lstlisting}
 
@@ -788,15 +899,10 @@ int main()
     a.push(42);
     b.push("42");
 }
-                \end{lstlisting}
+\end{lstlisting}
             \end{column}
         \end{columns}
     \end{example}
-
-    \begin{block}{Note}
-        \small
-        Due to the limitation of CFG, in the specification of a class template, the keyword \textit{typename} is required before a template parameter.
-    \end{block}
 \end{frame}
 
 \begin{frame}
@@ -806,9 +912,15 @@ int main()
         \text{template-definition} & \rightarrow & \textbf{template} \textbf{ < typename ID, ...>} \\
         &  & \text{struct-definition}\\
         \\
-        \text{type-specifier} & \rightarrow & \textbf{typename ID}\\
+        \text{type-specifier} & \rightarrow & \cdots \\
+        & | & \textbf{typename ID} \\
         & | & \textbf{struct ID <}\text{declaration,...}\textbf{>}
     \end{eqnarray*}
+
+    \begin{block}{Note}
+        \small
+        Due to the limitation of CFG, in the specification of a class template, the keyword \textit{typename} is required before a template parameter.
+    \end{block}
 
 \end{frame}
 
@@ -821,26 +933,26 @@ int main()
             \begin{lstlisting}[language=C++]
 template<typename T>
 struct S{
-    typename T t;
+    typename T a;
 };
 
 int main(){
-    struct S<int> s;
+    struct S<int> x;
 }
                 \end{lstlisting}
         \end{column}
 
         \begin{column}[]{0.5\textwidth}
-            \Tree [.program [.{template S} [.{\lstinline{struct S}}
+            \Tree [.program [.{template\ \textbf{S}} [.{\lstinline{struct S}}
                         [.\lstinline{T t}
                             {T}
-                            {t}
+                            {a}
                         ]
                 ]]
             [.{\lstinline{int main()\{...\}}}
-            [.{\lstinline{struct S<int> s;}}
+            [.{\lstinline{struct S<int> x;}}
                 {\lstinline{struct S<int>}}
-                {s}
+                {x}
             ]
             ]
             ]
@@ -858,15 +970,15 @@ int main(){
             \Tree [.{\alert<1>{program}}
             [.{\alert<2>{template S}}
                 [.{\alert<6>{\lstinline{struct S}}}
-                        [.{\alert<7>{\lstinline{T t}}}
+                        [.{\alert<7>{\lstinline{T a}}}
                                 {\alert<8>{T}}
-                                {\alert<9>{t}}
+                                {\alert<9>{a}}
                         ]
                 ]]
             [.{\alert<3>{\lstinline{int main()\{...\}}}}
-            [.{\alert<4>{\lstinline{struct S<int> s;}}}
+            [.{\alert<4>{\lstinline{struct S<int> x;}}}
                 {\alert<5,10>{\lstinline{struct S<int>}}}
-                {\alert<11>{s}}
+                {\alert<11>{x}}
             ]
             ]
             ]
@@ -879,7 +991,7 @@ int main(){
                 \item \textbf<2>{Record the pointer of node \lstinline{template S} in AST, do not analyse subtrees. }\pause
                       \pause
                       \pause
-                \item \textbf<5>{Map template T to \lstinline{int}, go analyse class template}\pause
+                \item \textbf<5>{\lstinline{S<int>} does not exist. Map parameter T to \lstinline{int}, analyse class template}\pause
                 \item \textbf<6>{Construct structure \lstinline{S<int>}}\pause
                       \pause
                 \item \textbf<8>{Use mapping to replace \lstinline{T} with \lstinline{int}}\pause
