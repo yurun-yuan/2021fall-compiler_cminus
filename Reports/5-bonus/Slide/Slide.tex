@@ -224,13 +224,13 @@
         \lstinline{int (* a[2])(int);}
         \\
         \begin{center}
-            \begin{tabular}{l |l}
-                Nested declarators & Type expression                     \\
+            \begin{tabular}{l | l |l}
+                Declarators & Declarator type & Type expression          \\
                 \hline \hline
-                \lstinline{(* a[2])(int)}    & \lstinline{int}                              \\
-                \lstinline{* a[2]}   & \lstinline{int}$\rightarrow$\lstinline{int}  \\
-                \lstinline{a[2]}   & pointer(\lstinline{int}$\rightarrow$\lstinline{int}) \\
-                \lstinline{a}    & array(2, pointer(\lstinline{int}$\rightarrow$\lstinline{int}))
+                \lstinline{(* a[2])(int)} &  Function   & \lstinline{int}                              \\
+                \lstinline{* a[2]} &  Pointer  & \lstinline{int}$\rightarrow$\lstinline{int}  \\
+                \lstinline{a[2]} &  Array  & pointer(\lstinline{int}$\rightarrow$\lstinline{int}) \\
+                \lstinline{a} &  \   & array(2, pointer(\lstinline{int}$\rightarrow$\lstinline{int}))
             \end{tabular}
         \end{center}
     \end{example}
@@ -245,7 +245,7 @@
             \begin{array}{rlll}
                 \text{declarator} & \rightarrow & \text{* declarator}                & \textbf{\textit{Pointer declarator}}  \\
                                   & |           & \text{declarator ( type, ... )}    & \textbf{\textit{Funtcion declarator}} \\
-                                  & |           & \text{declarator [ \textbf{int} ]} & \textbf{\textit{Array declarat}}      \\
+                                  & |           & \text{declarator [ \textbf{int} ]} & \textbf{\textit{Array declarator}}    \\
                                   & |           & \text{( declarator )}              & \                                     \\
                                   & |           & \textbf{ID}                        & \
             \end{array}
@@ -404,15 +404,13 @@
     \only<2>{
         $$
             \begin{array}{rll}
-                \text{type-specifier}    & \rightarrow & \cdots                                                        \\
-                                         & |           & \text{struct-definition}                                      \\
-                                         & |           & \textbf{struct ID}                                            \\
+                \text{type-specifier} & \rightarrow & \cdots                                                        \\
+                                      & |           & \textbf{struct ID} \textbf{\{} \text{definitions} \textbf{\}} \\
+                                      & |           & \textbf{struct} \textbf{\{} \text{definitions} \textbf{\}}    \\
+                                      & |           & \textbf{struct ID}                                            \\
                 \\
-                \text{struct-definition} & \rightarrow & \textbf{struct ID} \textbf{\{} \text{definitions} \textbf{\}} \\
-                                         & |           & \textbf{struct} \textbf{\{} \text{definitions} \textbf{\}}    \\
-                \\
-                \text{declarator}        & \rightarrow & \cdots                                                        \\
-                                         & |           & \epsilon
+                \text{declarator}     & \rightarrow & \cdots                                                        \\
+                                      & |           & \epsilon
             \end{array}
         $$
     }
