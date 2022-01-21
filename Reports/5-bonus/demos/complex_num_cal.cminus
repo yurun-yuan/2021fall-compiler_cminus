@@ -1,7 +1,7 @@
 /**
  * @file complex_num_cal.cminus
  * @author Yurun Yuan PB19111692
- * @brief A complex number calculator. Used as demos for cminusf compiler. 
+ * @brief A complex number calculator. Used as a demo for cminusf compiler. 
  * @version 0.1
  * @date 2021-12-25
  * 
@@ -62,104 +62,6 @@ struct complex_num
     }
 };
 
-struct complex_num plus(struct complex_num *lhs, struct complex_num *rhs)
-{
-    return *lhs + *rhs;
-}
-
-struct complex_num subtract(struct complex_num *lhs, struct complex_num *rhs)
-{
-    return *lhs - *rhs;
-}
-
-struct complex_num multiply(struct complex_num *lhs, struct complex_num *rhs)
-{
-    return *lhs * *rhs;
-}
-
-struct complex_num divide(struct complex_num *lhs, struct complex_num *rhs)
-{
-    return *lhs / *rhs;
-}
-
-/**
- * @brief An array of functions. To store functions that
- *        perform arithmetic operations for complex numbers. 
- */
-struct complex_num (*function_table[4])(struct complex_num *, struct complex_num *);
-
-struct complex_num (*get_function(int op))(struct complex_num *, struct complex_num *)
-{
-    if (op == 43) /* plus */
-        op = 0;
-    else if (op == 45) /* minus */
-        op = 1;
-    else if (op == 42) /* multiply */
-        op = 2;
-    else
-        op = 3;
-
-    return function_table[op];
-}
-
-int is_add_op(int op)
-{
-    if (op == 43)
-        return 1;
-    if (op == 45)
-        return 1;
-    return 0;
-}
-
-int is_mul_op(int op)
-{
-    if (op == 42)
-        return 1;
-    if (op == 47)
-        return 1;
-    return 0;
-}
-
-int char_to_int(int c)
-{
-    if (c >= 48)
-        if (c <= 57)
-            return c - 48;
-    return 0 - 1;
-}
-
-struct complex_num read_complex_num(int **iter_ptr)
-{
-    struct complex_num res;
-    float num = 0;
-    while (char_to_int(**iter_ptr) != 0 - 1)
-    {
-        num = num * 10 + char_to_int(**iter_ptr);
-        *iter_ptr = *iter_ptr + 1;
-    }
-    if (**iter_ptr == 105) /* 'i' = 105 */
-    {
-        res.real = 0;
-        res.imaginary = num;
-        *iter_ptr = *iter_ptr + 1;
-    }
-    else
-    {
-        res.real = num;
-        res.imaginary = 0;
-    }
-    return res;
-}
-
-void output_complex_num(struct complex_num num)
-{
-    print_float(num.real);
-    print_char(32);
-    print_float(num.imaginary);
-    print_char(105);
-    print_char(10);
-}
-
 template <typename T>
 struct linked_list_node
 {
@@ -209,17 +111,63 @@ struct stack
     }
 };
 
+int char_to_int(int c)
+{
+    if (c >= 48)
+        if (c <= 57)
+            return c - 48;
+    return 0 - 1;
+}
+
+struct complex_num read_complex_num(int **iter_ptr)
+{
+    struct complex_num res;
+    float num = 0;
+    while (char_to_int(**iter_ptr) != 0 - 1)
+    {
+        num = num * 10 + char_to_int(**iter_ptr);
+        *iter_ptr = *iter_ptr + 1;
+    }
+    if (**iter_ptr == 105) /* 'i' = 105 */
+    {
+        res.real = 0;
+        res.imaginary = num;
+        *iter_ptr = *iter_ptr + 1;
+    }
+    else
+    {
+        res.real = num;
+        res.imaginary = 0;
+    }
+    return res;
+}
+
+void output_complex_num(struct complex_num num)
+{
+    print_float(num.real);
+    print_char(32);
+    print_float(num.imaginary);
+    print_char(105);
+    print_char(10);
+}
+
+struct complex_num plus(struct complex_num *lhs, struct complex_num *rhs) { return *lhs + *rhs; }
+struct complex_num subtract(struct complex_num *lhs, struct complex_num *rhs) { return *lhs - *rhs; }
+struct complex_num multiply(struct complex_num *lhs, struct complex_num *rhs) { return *lhs * *rhs; }
+struct complex_num divide(struct complex_num *lhs, struct complex_num *rhs) { return *lhs / *rhs; }
+
+struct complex_num (*function_table[64])(struct complex_num *, struct complex_num *);
+
 int main()
 {
-    /* Initialize */
-    function_table[0] = plus;
-    function_table[1] = subtract;
-    function_table[2] = multiply;
-    function_table[3] = divide;
+    function_table[43] = plus;     /* '+' == 43 */
+    function_table[45] = subtract; /* '-' == 45 */
+    function_table[42] = multiply; /* '*' == 42 */
+    function_table[47] = divide;   /* '/' == 47 */
 
-    int terminator = 10;
-    int l_paren = 40;
-    int r_paren = 41;
+    int terminator = 10; /* '\n' == 10 */
+    int l_paren = 40;    /* '(' == 40 */
+    int r_paren = 41;    /* ')' == 41 */
     int *cur_pos;
     int *input;
     input = reinterpret_cast<int *>(allocate(512 * 4));
@@ -243,9 +191,7 @@ int main()
     while (*cur_pos != terminator)
     {
         if (char_to_int(*cur_pos) != 0 - 1)
-        {
             operands.push(read_complex_num(&cur_pos));
-        }
         else if (*cur_pos == 105)
         {
             struct complex_num unit;
@@ -265,29 +211,37 @@ int main()
             {
                 struct complex_num rhs = operands.pop();
                 struct complex_num lhs = operands.pop();
-                operands.push(get_function(operators.pop())(&lhs, &rhs));
+                operands.push(function_table[operators.pop()](&lhs, &rhs));
             }
             operators.pop();
             cur_pos = cur_pos + 1;
         }
-        else if (is_add_op(*cur_pos) == 1)
+        else if ((*cur_pos - 43) * (*cur_pos - 45) == 0)
         {
             while (operators.elem_num * (operators.top() - l_paren) != 0)
             {
                 struct complex_num rhs = operands.pop();
                 struct complex_num lhs = operands.pop();
-                operands.push(get_function(operators.pop())(&lhs, &rhs));
+                operands.push(function_table[operators.pop()](&lhs, &rhs));
             }
             operators.push(*cur_pos);
             cur_pos = cur_pos + 1;
         }
-        else if (is_mul_op(*cur_pos) == 1)
+        else if ((*cur_pos - 42) * (*cur_pos - 47) == 0)
         {
-            while (operators.elem_num * is_mul_op(operators.top()) != 0)
+            int loop_cond = 0;
+            if (operators.elem_num != 0)
+                if ((operators.top() - 42) * (operators.top() - 47) == 0)
+                    loop_cond = 1;
+            while (loop_cond == 1)
             {
                 struct complex_num rhs = operands.pop();
                 struct complex_num lhs = operands.pop();
-                operands.push(get_function(operators.pop())(&lhs, &rhs));
+                operands.push(function_table[operators.pop()](&lhs, &rhs));
+                loop_cond = 0;
+                if (operators.elem_num != 0)
+                    if ((operators.top() - 42) * (operators.top() - 47) == 0)
+                        loop_cond = 1;
             }
             operators.push(*cur_pos);
             cur_pos = cur_pos + 1;
@@ -299,7 +253,7 @@ int main()
     {
         struct complex_num rhs = operands.pop();
         struct complex_num lhs = operands.pop();
-        operands.push(get_function(operators.pop())(&lhs, &rhs));
+        operands.push(function_table[operators.pop()](&lhs, &rhs));
     }
     if (operands.elem_num != 1)
         return 0 - 1;
